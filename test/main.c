@@ -10,6 +10,13 @@
 	} \
 }
 
+#define assert_null(x) { \
+	if(x != NULL) { \
+		printf("%s:%i: Expected NULL\n", __FILE__, __LINE__); \
+		exit(EXIT_FAILURE); \
+	} \
+}
+
 #define assert_equal_string(a, b) { \
 	if(strncmp(a, b, strlen(a) != 0)) { \
 		printf("%s:%i: Expected \"%s\", got \"%s\"\n", __FILE__, __LINE__, a, b); \
@@ -35,9 +42,29 @@ void test_database_can_create_a_table() {
 	db_close(db);
 }
 
+void test_database_can_create_multiple_tables() {
+	Database* db = db_open();
+
+	const char* table1 = "one";
+	const char* table2 = "two";
+	db_create_table(db, table1);
+	db_create_table(db, table2);
+	const char* first_table = db_first_table(db);
+	const char* next_table = db_next_table(db, first_table);
+	const char* end_of_tables = db_next_table(db, next_table);
+	assert_not_null(first_table);
+	assert_equal_string(table1, first_table);
+	assert_not_null(next_table);
+	assert_equal_string(table2, next_table);
+	assert_null(end_of_tables);
+
+	db_close(db);
+}
+
 int main(int argc, char* argv[]) {
 	test_database_can_be_opened_and_closed();
 	test_database_can_create_a_table();
+	test_database_can_create_multiple_tables();
 
 	printf("TESTING COMPLETE\n");
 	return EXIT_SUCCESS;
