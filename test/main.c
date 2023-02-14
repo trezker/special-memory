@@ -6,14 +6,47 @@
 #include <stdbool.h>
 #include "../database/database.h"
 
-int out_of_memory = false;
+typedef struct {
+	void* ptr;
+	bool freed;
+} Allocation;
+
+#define MAX_ALLOCATIONS 16
+Allocation allocations[MAX_ALLOCATIONS];
+int num_allocations = 0;
+
+void free_allocation(void* p) {
+	for(int i=0; i<MAX_ALLOCATIONS; ++i) {
+		if(allocations[i].ptr == p) {
+			allocations[i].freed = true;
+			break;
+		}
+	}
+}
 
 void *malloc(size_t size) {
-	if(out_of_memory) {
-		return NULL;
+	void* (*original_malloc)(size_t) = dlsym(RTLD_NEXT, "malloc");
+	void* p = original_malloc(size);
+	allocations[num_allocations].ptr = p;
+	num_allocations++;
+	return p;
+}
+
+void *realloc(void* ptr, size_t size) {
+	void* (*original_realloc)(void*, size_t) = dlsym(RTLD_NEXT, "realloc");
+	void* p = original_realloc(ptr, size);
+	allocations[num_allocations].ptr = p;
+	num_allocations++;
+	if(p != ptr) {
+		free_allocation(ptr);
 	}
-	void* (*original_malloc)(size_t size) = dlsym(RTLD_NEXT, "malloc");
-	return original_malloc(size);
+	return p;
+}
+
+void free(void* ptr) {
+	void (*original_free)(void*) = dlsym(RTLD_NEXT, "free");
+	original_free(ptr);
+	free_allocation(ptr);
 }
 
 #define assert_not_null(x) { \
@@ -108,12 +141,40 @@ void test_database_can_add_columns() {
 	db_close(db);
 }
 
+bool check_allocations() {
+	for(int i=0; i<num_allocations; ++i) {
+		if(allocations[i].freed == false) {
+			return false;
+		}
+	}
+	return true;
+}
+
+typedef struct {
+	void (*f)(void);
+} Test;
+
 int main(int argc, char* argv[]) {
-	test_database_can_be_opened_and_closed();
-	test_database_can_create_a_table();
-	test_database_can_create_multiple_tables();
-	test_database_can_not_create_duplicate_tables();
-	test_database_can_add_columns();
+	for(int i=0; i<MAX_ALLOCATIONS; ++i) {
+		allocations[i].ptr = NULL;
+		allocations[i].freed = false;
+	}
+
+	int num_tests = 0;
+	Test tests[16];
+	tests[num_tests++].f = &test_database_can_be_opened_and_closed;
+	tests[num_tests++].f = &test_database_can_create_a_table;
+	tests[num_tests++].f = &test_database_can_create_multiple_tables;
+	tests[num_tests++].f = &test_database_can_not_create_duplicate_tables;
+	tests[num_tests++].f = &test_database_can_add_columns;
+
+	for(int i=0; i<num_tests; ++i) {
+		tests[i].f();
+		if(!check_allocations()) {
+			printf("Memory fault on test #%i\n", i);
+			return EXIT_FAILURE;
+		}
+	}
 
 	printf("TESTING COMPLETE\n");
 	return EXIT_SUCCESS;
