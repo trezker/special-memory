@@ -1,7 +1,20 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dlfcn.h>
+#include <stdbool.h>
 #include "../database/database.h"
+
+int out_of_memory = false;
+
+void *malloc(size_t size) {
+	if(out_of_memory) {
+		return NULL;
+	}
+	void* (*original_malloc)(size_t size) = dlsym(RTLD_NEXT, "malloc");
+	return original_malloc(size);
+}
 
 #define assert_not_null(x) { \
 	if(x == NULL) { \
@@ -61,7 +74,7 @@ void test_database_can_create_multiple_tables() {
 	db_close(db);
 }
 
-void test_database_can__not_create_duplicate_tables() {
+void test_database_can_not_create_duplicate_tables() {
 	Database* db = db_open();
 
 	const char* table1 = "one";
@@ -82,11 +95,25 @@ void test_database_can__not_create_duplicate_tables() {
 	db_close(db);
 }
 
+void test_database_can_add_columns() {
+	Database* db = db_open();
+	const char* table = "one";
+	db_create_table(db, table);
+
+	db_add_column(db, table, "key", sizeof(uint32_t));
+	const char* column = db_get_first_column(db, table);
+	assert_not_null(column);
+	assert_equal_string("key", column);
+
+	db_close(db);
+}
+
 int main(int argc, char* argv[]) {
 	test_database_can_be_opened_and_closed();
 	test_database_can_create_a_table();
 	test_database_can_create_multiple_tables();
-	test_database_can__not_create_duplicate_tables();
+	test_database_can_not_create_duplicate_tables();
+	test_database_can_add_columns();
 
 	printf("TESTING COMPLETE\n");
 	return EXIT_SUCCESS;
