@@ -1,76 +1,10 @@
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <dlfcn.h>
-#include <stdbool.h>
+#include "assert.h"
+#include "memorydebug.h"
 #include "../database/database.h"
 
-typedef struct {
-	void* ptr;
-	bool freed;
-} Allocation;
-
-#define MAX_ALLOCATIONS 1024
-Allocation allocations[MAX_ALLOCATIONS];
-int num_allocations = 0;
-
-void free_allocation(void* p) {
-	for(int i=0; i<MAX_ALLOCATIONS; ++i) {
-		if(allocations[i].ptr == p) {
-			allocations[i].freed = true;
-			break;
-		}
-	}
-}
-
-void *malloc(size_t size) {
-	void* (*original_malloc)(size_t) = dlsym(RTLD_NEXT, "malloc");
-	void* p = original_malloc(size);
-	allocations[num_allocations].ptr = p;
-	num_allocations++;
-	return p;
-}
-
-void *realloc(void* ptr, size_t size) {
-	void* (*original_realloc)(void*, size_t) = dlsym(RTLD_NEXT, "realloc");
-	void* p = original_realloc(ptr, size);
-	if(p != ptr) {
-		allocations[num_allocations].ptr = p;
-		num_allocations++;
-		if(ptr != NULL) {
-			free_allocation(ptr);
-		}
-	}
-	return p;
-}
-
-void free(void* ptr) {
-	void (*original_free)(void*) = dlsym(RTLD_NEXT, "free");
-	original_free(ptr);
-	free_allocation(ptr);
-}
-
-#define assert_not_null(x) { \
-	if(x == NULL) { \
-		printf("%s:%i: Expected NOT NULL\n", __FILE__, __LINE__); \
-		exit(EXIT_FAILURE); \
-	} \
-}
-
-#define assert_null(x) { \
-	if(x != NULL) { \
-		printf("%s:%i: Expected NULL\n", __FILE__, __LINE__); \
-		exit(EXIT_FAILURE); \
-	} \
-}
-
-#define assert_equal_string(a, b) { \
-	if(strncmp(a, b, strlen(a) != 0)) { \
-		printf("%s:%i: Expected \"%s\", got \"%s\"\n", __FILE__, __LINE__, a, b); \
-		exit(EXIT_FAILURE); \
-	} \
-}
 
 void test_database_can_be_opened_and_closed() {
 	Database* db = db_open();
@@ -141,26 +75,6 @@ void test_database_can_add_columns() {
 	assert_equal_string("key", column);
 
 	db_close(db);
-}
-
-void clear_allocations() {
-	for(int i=0; i<num_allocations; ++i) {
-		allocations[i].ptr = NULL;
-		allocations[i].freed = false;
-	}
-	num_allocations = 0;
-}
-
-bool check_allocations() {
-	for(int i=0; i<num_allocations; ++i) {
-		if(allocations[i].freed == false) {
-			printf("Allocations: %i\n", num_allocations);
-			printf("Allocation #%i not freed: %p\n", i, allocations[i].ptr);
-			return false;
-		}
-	}
-	clear_allocations();
-	return true;
 }
 
 typedef struct {

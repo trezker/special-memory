@@ -7,5 +7,6 @@ project(database)
 file(GLOB database_SRC "database/*.h" "database/*.c")
 add_library(database STATIC ${database_SRC})
 
-add_executable(test "test/main.c")
+file(GLOB test_SRC "test/*.h" "test/*.c")
+add_executable(test ${test_SRC})
 target_link_libraries(test dl database)
