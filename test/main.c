@@ -11,7 +11,7 @@ typedef struct {
 	bool freed;
 } Allocation;
 
-#define MAX_ALLOCATIONS 16
+#define MAX_ALLOCATIONS 1024
 Allocation allocations[MAX_ALLOCATIONS];
 int num_allocations = 0;
 
@@ -35,10 +35,12 @@ void *malloc(size_t size) {
 void *realloc(void* ptr, size_t size) {
 	void* (*original_realloc)(void*, size_t) = dlsym(RTLD_NEXT, "realloc");
 	void* p = original_realloc(ptr, size);
-	allocations[num_allocations].ptr = p;
-	num_allocations++;
 	if(p != ptr) {
-		free_allocation(ptr);
+		allocations[num_allocations].ptr = p;
+		num_allocations++;
+		if(ptr != NULL) {
+			free_allocation(ptr);
+		}
 	}
 	return p;
 }
@@ -141,12 +143,23 @@ void test_database_can_add_columns() {
 	db_close(db);
 }
 
+void clear_allocations() {
+	for(int i=0; i<num_allocations; ++i) {
+		allocations[i].ptr = NULL;
+		allocations[i].freed = false;
+	}
+	num_allocations = 0;
+}
+
 bool check_allocations() {
 	for(int i=0; i<num_allocations; ++i) {
 		if(allocations[i].freed == false) {
+			printf("Allocations: %i\n", num_allocations);
+			printf("Allocation #%i not freed: %p\n", i, allocations[i].ptr);
 			return false;
 		}
 	}
+	clear_allocations();
 	return true;
 }
 
@@ -155,10 +168,7 @@ typedef struct {
 } Test;
 
 int main(int argc, char* argv[]) {
-	for(int i=0; i<MAX_ALLOCATIONS; ++i) {
-		allocations[i].ptr = NULL;
-		allocations[i].freed = false;
-	}
+	clear_allocations();
 
 	int num_tests = 0;
 	Test tests[16];
