@@ -118,7 +118,7 @@ typedef struct {
 	uint32_t line;
 } Test;
 
-#define add_test(tests, function) { \
+#define add_test(function) { \
 	tests[num_tests].f = function; \
 	tests[num_tests].line = __LINE__; \
 	num_tests++; \
@@ -136,19 +136,19 @@ int main(int argc, char* argv[]) {
 
 	int num_tests = 0;
 	Test tests[16];
-	add_test(tests, test_database_can_be_opened_and_closed);
-	add_test(tests, test_database_can_create_a_table);
-	add_test(tests, test_database_can_create_multiple_tables);
-	add_test(tests, test_database_can_not_create_duplicate_tables);
-	add_test(tests, test_database_can_insert_and_select_data);
-	//add_test(tests, test_database_can_insert_more_than_one_page_of_data);
+	add_test(test_database_can_be_opened_and_closed);
+	add_test(test_database_can_create_a_table);
+	add_test(test_database_can_create_multiple_tables);
+	add_test(test_database_can_not_create_duplicate_tables);
+	add_test(test_database_can_insert_and_select_data);
+	//add_test(test_database_can_insert_more_than_one_page_of_data);
 
-	add_test(tests, test_pager_can_be_opened_and_closed);
+	add_test(test_pager_can_be_opened_and_closed);
 
 	for(int i=0; i<num_tests; ++i) {
 		tests[i].f();
 		if(!check_allocations()) {
-			printf("Memory fault on test at line #%li\n", tests[i].line);
+			printf("Memory fault on test at line #%i\n", tests[i].line);
 			return EXIT_FAILURE;
 		}
 	}
