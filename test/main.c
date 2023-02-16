@@ -68,6 +68,24 @@ void test_database_can_not_create_duplicate_tables() {
 	db_close(db);
 }
 
+void test_database_can_insert_and_select_data() {
+	Database* db = db_open();
+	const char* table = "stuff";
+	db_create_table(db, table, sizeof(Stuff));
+
+	Stuff in;
+	in.id = 1;
+	strncpy(in.text, "Hagrid", 256);
+	db_insert(db, table, &in);
+
+	Stuff out;
+	db_select(db, table, 1, &out);
+
+	assert_equal(in.id, out.id);
+
+	db_close(db);
+}
+
 typedef struct {
 	void (*f)(void);
 } Test;
@@ -87,6 +105,7 @@ int main(int argc, char* argv[]) {
 	tests[num_tests++].f = &test_database_can_create_a_table;
 	tests[num_tests++].f = &test_database_can_create_multiple_tables;
 	tests[num_tests++].f = &test_database_can_not_create_duplicate_tables;
+	tests[num_tests++].f = &test_database_can_insert_and_select_data;
 
 	for(int i=0; i<num_tests; ++i) {
 		tests[i].f();
