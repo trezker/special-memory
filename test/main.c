@@ -5,7 +5,6 @@
 #include "memorydebug.h"
 #include "../database/database.h"
 
-
 void test_database_can_be_opened_and_closed() {
 	Database* db = db_open();
 	assert_not_null(db);
@@ -64,23 +63,16 @@ void test_database_can_not_create_duplicate_tables() {
 	db_close(db);
 }
 
-void test_database_can_add_columns() {
-	Database* db = db_open();
-	const char* table = "one";
-	db_create_table(db, table);
-
-	db_add_column(db, table, "key", sizeof(uint32_t));
-	const char* column = db_get_first_column(db, table);
-	assert_not_null(column);
-	assert_equal_string("key", column);
-
-	db_close(db);
-}
-
 typedef struct {
 	void (*f)(void);
 } Test;
 
+/*
+TODO:
+Fixed keysize
+Table creation take rowsize
+Don't define columns, but create index giving type and offset.
+*/
 int main(int argc, char* argv[]) {
 	clear_allocations();
 
@@ -90,7 +82,6 @@ int main(int argc, char* argv[]) {
 	tests[num_tests++].f = &test_database_can_create_a_table;
 	tests[num_tests++].f = &test_database_can_create_multiple_tables;
 	tests[num_tests++].f = &test_database_can_not_create_duplicate_tables;
-	tests[num_tests++].f = &test_database_can_add_columns;
 
 	for(int i=0; i<num_tests; ++i) {
 		tests[i].f();
