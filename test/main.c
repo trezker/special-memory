@@ -4,6 +4,7 @@
 #include "assert.h"
 #include "memorydebug.h"
 #include "../database/database.h"
+#include "../database/pager.h"
 
 typedef struct {
 	uint32_t id;
@@ -73,22 +74,55 @@ void test_database_can_insert_and_select_data() {
 	const char* table = "stuff";
 	db_create_table(db, table, sizeof(Stuff));
 
-	Stuff in;
-	in.id = 1;
-	strncpy(in.text, "Hagrid", 256);
-	db_insert(db, table, &in);
+	Stuff in1;
+	in1.id = 1;
+	strncpy(in1.text, "Hagrid", 256);
+	db_insert(db, table, &in1);
+	Stuff in2;
+	in2.id = 2;
+	strncpy(in2.text, "Harry", 256);
+	db_insert(db, table, &in2);
 
 	Stuff out;
 	db_select(db, table, 1, &out);
+	assert_equal(in1.id, out.id);
 
-	assert_equal(in.id, out.id);
+	db_select(db, table, 2, &out);
+	assert_equal(in2.id, out.id);
 
 	db_close(db);
+}
+/*
+void test_database_can_insert_more_than_one_page_of_data() {
+	Database* db = db_open();
+	const char* table = "stuff";
+	db_create_table(db, table, sizeof(Stuff));
+
+	Stuff in;
+	for(int i=0; i<16; ++i) {
+		in.id = i;
+		sprintf(in.text, "Name%i", i);
+		db_insert(db, table, &in);
+	}
+
+	db_close(db);
+}
+*/
+
+void test_pager_can_be_opened_and_closed() {
+	db_open_pager();
 }
 
 typedef struct {
 	void (*f)(void);
+	uint32_t line;
 } Test;
+
+#define add_test(tests, function) { \
+	tests[num_tests].f = function; \
+	tests[num_tests].line = __LINE__; \
+	num_tests++; \
+}
 
 /*
 TODO:
@@ -97,20 +131,24 @@ Table creation take rowsize
 Don't define columns, but create index giving type and offset.
 */
 int main(int argc, char* argv[]) {
+	//printf("Stuff: %li\n", 4096/sizeof(Stuff));
 	clear_allocations();
 
 	int num_tests = 0;
 	Test tests[16];
-	tests[num_tests++].f = &test_database_can_be_opened_and_closed;
-	tests[num_tests++].f = &test_database_can_create_a_table;
-	tests[num_tests++].f = &test_database_can_create_multiple_tables;
-	tests[num_tests++].f = &test_database_can_not_create_duplicate_tables;
-	tests[num_tests++].f = &test_database_can_insert_and_select_data;
+	add_test(tests, test_database_can_be_opened_and_closed);
+	add_test(tests, test_database_can_create_a_table);
+	add_test(tests, test_database_can_create_multiple_tables);
+	add_test(tests, test_database_can_not_create_duplicate_tables);
+	add_test(tests, test_database_can_insert_and_select_data);
+	//add_test(tests, test_database_can_insert_more_than_one_page_of_data);
+
+	add_test(tests, test_pager_can_be_opened_and_closed);
 
 	for(int i=0; i<num_tests; ++i) {
 		tests[i].f();
 		if(!check_allocations()) {
-			printf("Memory fault on test #%i\n", i);
+			printf("Memory fault on test at line #%li\n", tests[i].line);
 			return EXIT_FAILURE;
 		}
 	}
