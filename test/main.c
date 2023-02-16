@@ -5,6 +5,11 @@
 #include "memorydebug.h"
 #include "../database/database.h"
 
+typedef struct {
+	uint32_t id;
+	char text[257];
+} Stuff;
+
 void test_database_can_be_opened_and_closed() {
 	Database* db = db_open();
 	assert_not_null(db);
@@ -15,7 +20,7 @@ void test_database_can_create_a_table() {
 	Database* db = db_open();
 
 	const char* table_name = "test";
-	db_create_table(db, table_name);
+	db_create_table(db, table_name, 100);
 	const char* first_table = db_first_table(db);
 	assert_not_null(first_table);
 	assert_equal_string(table_name, first_table);
@@ -28,8 +33,8 @@ void test_database_can_create_multiple_tables() {
 
 	const char* table1 = "one";
 	const char* table2 = "two";
-	db_create_table(db, table1);
-	db_create_table(db, table2);
+	db_create_table(db, table1, 1);
+	db_create_table(db, table2, 2);
 	const char* first_table = db_first_table(db);
 	const char* next_table = db_next_table(db, first_table);
 	const char* end_of_tables = db_next_table(db, next_table);
@@ -47,10 +52,10 @@ void test_database_can_not_create_duplicate_tables() {
 
 	const char* table1 = "one";
 	const char* table2 = "two";
-	db_create_table(db, table1);
-	db_create_table(db, table2);
-	db_create_table(db, table1);
-	db_create_table(db, table2);
+	db_create_table(db, table1, 1);
+	db_create_table(db, table2, 2);
+	db_create_table(db, table1, 3);
+	db_create_table(db, table2, 4);
 	const char* first_table = db_first_table(db);
 	const char* next_table = db_next_table(db, first_table);
 	const char* end_of_tables = db_next_table(db, next_table);
