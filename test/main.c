@@ -110,7 +110,21 @@ void test_database_can_insert_more_than_one_page_of_data() {
 */
 
 void test_pager_can_be_opened_and_closed() {
-	db_open_pager();
+	Pager* pager = db_open_pager();
+	db_close_pager(pager);
+}
+
+void test_pager_provides_writable_pages() {
+	Pager* pager = db_open_pager();
+
+	uint32_t n1 = db_get_unused_page(pager);
+	uint32_t n2 = db_get_unused_page(pager);
+	void* page1 = db_get_page(pager, n1);
+	void* page2 = db_get_page(pager, n2);
+	memset(page1, 0, 4096);
+	memset(page2, 1, 4096);
+
+	db_close_pager(pager);
 }
 
 typedef struct {
@@ -144,6 +158,7 @@ int main(int argc, char* argv[]) {
 	//add_test(test_database_can_insert_more_than_one_page_of_data);
 
 	add_test(test_pager_can_be_opened_and_closed);
+	add_test(test_pager_provides_writable_pages);
 
 	for(int i=0; i<num_tests; ++i) {
 		tests[i].f();
