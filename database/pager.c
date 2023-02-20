@@ -18,7 +18,7 @@ void db_close_pager(Pager* pager) {
 }
 
 uint32_t db_get_unused_page(Pager* pager) {
-	pager->pages[pager->num_pages] = malloc(4096);
+	pager->pages[pager->num_pages] = malloc(PAGE_SIZE);
 	return pager->num_pages++;
 }
 

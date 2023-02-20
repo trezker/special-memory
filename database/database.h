@@ -1,10 +1,14 @@
+#ifndef DATABASE_H
+#define DATABASE_H
+
 #include <stdint.h>
 #include <uuid/uuid.h>
+#include "pager.h"
 
 typedef struct {
 	char name[65];
 	uint32_t cell_size;
-	void* data;
+	Pager* pager;
 } Table;
 
 typedef struct {
@@ -19,3 +23,5 @@ const char* db_first_table(Database* db);
 const char* db_next_table(Database* db, const char* name);
 void db_insert(Database* db, const char* table, void* data);
 void db_select(Database* db, const char* table, uuid_t id, void* data);
+
+#endif

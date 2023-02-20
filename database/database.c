@@ -3,7 +3,6 @@
 #include <string.h>
 #include "database.h"
 
-const uint32_t PAGE_SIZE = 4096;
 const uint32_t LEAF_NODE_NUM_CELLS_SIZE = sizeof(uint32_t);
 const uint32_t LEAF_NODE_NUM_CELLS_OFFSET = 0;
 const uint32_t LEAF_NODE_HEADER_SIZE = LEAF_NODE_NUM_CELLS_OFFSET + LEAF_NODE_NUM_CELLS_SIZE;
@@ -25,7 +24,7 @@ Database* db_open() {
 
 void db_close(Database* db) {
 	for(int i=0; i<db->num_tables; ++i) {
-		free(db->tables[i].data);
+		db_close_pager(db->tables[i].pager);
 	}
 	free(db->tables);
 	free(db);
@@ -48,8 +47,11 @@ void db_create_table(Database* db, const char* name, uint32_t cell_size) {
 	strncpy(db->tables[db->num_tables].name, name, 64);
 	db->tables[db->num_tables].cell_size = cell_size;
 
-	db->tables[db->num_tables].data = malloc(PAGE_SIZE);
-	void *node = db->tables[db->num_tables].data;
+ 	Pager* pager = db_open_pager();
+	db->tables[db->num_tables].pager = pager;
+	db_get_unused_page(pager);
+
+	void *node = db_get_page(pager, 0);
 	*leaf_node_num_cells(node) = 0;
 
 	db->num_tables++;
@@ -70,20 +72,22 @@ const char* db_next_table(Database* db, const char* name) {
 void db_insert(Database* db, const char* tablename, void* data) {
 	uint32_t i = db_find_table(db, tablename);
 	Table* table = &db->tables[i];
+	void* node = db_get_page(table->pager, 0);
 
-	uint32_t num_cells = *leaf_node_num_cells(table->data);
-	void* cell = leaf_node_cell(table->data, num_cells, table->cell_size);
+	uint32_t num_cells = *leaf_node_num_cells(node);
+	void* cell = leaf_node_cell(node, num_cells, table->cell_size);
 	memcpy(cell, data, table->cell_size);
-	*leaf_node_num_cells(table->data) += 1;
+	*leaf_node_num_cells(node) += 1;
 }
 
 void db_select(Database* db, const char* tablename, uuid_t id, void* data) {
 	uint32_t i = db_find_table(db, tablename);
 	Table* table = &db->tables[i];
+	void* node = db_get_page(table->pager, 0);
 
-	uint32_t num_cells = *leaf_node_num_cells(table->data);
+	uint32_t num_cells = *leaf_node_num_cells(node);
 	for(uint32_t i=0; i<num_cells; ++i) {
-		void* cell = leaf_node_cell(table->data, i, table->cell_size);
+		void* cell = leaf_node_cell(node, i, table->cell_size);
 		if(uuid_compare(*(uuid_t*)cell, id) == 0) {
 			memcpy(data, cell, table->cell_size);
 			return;
