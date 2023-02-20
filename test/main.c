@@ -7,7 +7,7 @@
 #include "../database/pager.h"
 
 typedef struct {
-	uint32_t id;
+	uuid_t id;
 	char text[257];
 } Stuff;
 
@@ -75,20 +75,20 @@ void test_database_can_insert_and_select_data() {
 	db_create_table(db, table, sizeof(Stuff));
 
 	Stuff in1;
-	in1.id = 1;
+	uuid_generate(in1.id);
 	strncpy(in1.text, "Hagrid", 256);
 	db_insert(db, table, &in1);
 	Stuff in2;
-	in2.id = 2;
+	uuid_generate(in2.id);
 	strncpy(in2.text, "Harry", 256);
 	db_insert(db, table, &in2);
 
 	Stuff out;
-	db_select(db, table, 1, &out);
-	assert_equal(in1.id, out.id);
+	db_select(db, table, in1.id, &out);
+	assert_equal_uuid(in1.id, out.id);
 
-	db_select(db, table, 2, &out);
-	assert_equal(in2.id, out.id);
+	db_select(db, table, in2.id, &out);
+	assert_equal_uuid(in2.id, out.id);
 
 	db_close(db);
 }
@@ -140,12 +140,12 @@ typedef struct {
 
 /*
 TODO:
-Fixed keysize
-Table creation take rowsize
+Use uuid.h
 Don't define columns, but create index giving type and offset.
 */
 int main(int argc, char* argv[]) {
-	//printf("Stuff: %li\n", 4096/sizeof(Stuff));
+	printf("Stuff: %li\n", sizeof(Stuff));
+	printf("uuid: %li\n", sizeof(uuid_t));
 	clear_allocations();
 
 	int num_tests = 0;

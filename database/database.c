@@ -77,14 +77,14 @@ void db_insert(Database* db, const char* tablename, void* data) {
 	*leaf_node_num_cells(table->data) += 1;
 }
 
-void db_select(Database* db, const char* tablename, uint32_t id, void* data) {
+void db_select(Database* db, const char* tablename, uuid_t id, void* data) {
 	uint32_t i = db_find_table(db, tablename);
 	Table* table = &db->tables[i];
 
 	uint32_t num_cells = *leaf_node_num_cells(table->data);
 	for(uint32_t i=0; i<num_cells; ++i) {
 		void* cell = leaf_node_cell(table->data, i, table->cell_size);
-		if(*(uint32_t*)cell == id) {
+		if(uuid_compare(*(uuid_t*)cell, id) == 0) {
 			memcpy(data, cell, table->cell_size);
 			return;
 		}
