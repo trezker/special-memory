@@ -3,20 +3,27 @@
 #include <string.h>
 #include "database.h"
 
-#define LEAF_NODE_SPACE_FOR_CELLS (PAGE_SIZE-sizeof(uint32_t)*2)
 typedef struct {
 	uint8_t type;
-	uint16_t num_cells;
-	uint32_t next_leaf;
+	uint8_t num_cells;
+	uint32_t parent;
+	uint32_t page; //Next leaf or last child
+} Header;
+
+#define LEAF_NODE_SPACE_FOR_CELLS (PAGE_SIZE-sizeof(Header))
+typedef struct {
+	Header header;
 	uint8_t cellspace[LEAF_NODE_SPACE_FOR_CELLS];
 } Leaf;
 
-#define INTERNAL_NODE_MAX_CELLS (PAGE_SIZE/sizeof(uint32_t)-2)/2
 typedef struct {
-	uint8_t type;
-	uint16_t num_cells;
-	uint32_t last_child;
-	uint32_t cells[INTERNAL_NODE_MAX_CELLS*2];
+	uuid_t key;
+	uint32_t page;
+} Child;
+#define INTERNAL_NODE_MAX_CELLS ((PAGE_SIZE-sizeof(Header))/sizeof(Child))
+typedef struct {
+	Header header;
+	Child cells[INTERNAL_NODE_MAX_CELLS];
 } Internal;
 
 uint32_t leaf_max_cells(Table* table) {
@@ -60,15 +67,15 @@ void db_create_table(Database* db, const char* name, uint32_t cell_size) {
 	db->tables = realloc(db->tables, sizeof(Table)*(db->num_tables+1));
 	strncpy(db->tables[db->num_tables].name, name, 64);
 	db->tables[db->num_tables].cell_size = cell_size;
-	printf("Leaf max cells: %li\n", leaf_max_cells(&db->tables[db->num_tables]));
-	printf("Leaf node size: %li\n", sizeof(Leaf) + cell_size*(leaf_max_cells(&db->tables[db->num_tables])));
+	printf("Leaf max cells: %i\n", leaf_max_cells(&db->tables[db->num_tables]));
+	printf("Leaf node size: %li\n", sizeof(uint32_t)*2 + cell_size*(leaf_max_cells(&db->tables[db->num_tables])));
 
  	Pager* pager = db_open_pager();
 	db->tables[db->num_tables].pager = pager;
 	db_get_unused_page(pager);
 
 	Leaf *node = db_get_page(pager, 0);
-	node->num_cells = 0;
+	node->header.num_cells = 0;
 
 	db->num_tables++;
 }
@@ -90,9 +97,9 @@ void db_insert(Database* db, const char* tablename, void* data) {
 	Table* table = &db->tables[i];
 	Leaf* node = db_get_page(table->pager, 0);
 
-	void* cell = leaf_node_cell(node, node->num_cells, table->cell_size);
+	void* cell = leaf_node_cell(node, node->header.num_cells, table->cell_size);
 	memcpy(cell, data, table->cell_size);
-	node->num_cells += 1;
+	node->header.num_cells += 1;
 }
 
 void db_select(Database* db, const char* tablename, uuid_t id, void* data) {
@@ -100,7 +107,7 @@ void db_select(Database* db, const char* tablename, uuid_t id, void* data) {
 	Table* table = &db->tables[i];
 	Leaf* node = db_get_page(table->pager, 0);
 
-	for(uint32_t i=0; i<node->num_cells; ++i) {
+	for(uint32_t i=0; i<node->header.num_cells; ++i) {
 		void* cell = leaf_node_cell(node, i, table->cell_size);
 		if(uuid_compare(*(uuid_t*)cell, id) == 0) {
 			memcpy(data, cell, table->cell_size);
