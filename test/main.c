@@ -34,7 +34,7 @@ void test_database_can_create_multiple_tables() {
 
 	const char* table1 = "one";
 	const char* table2 = "two";
-	db_create_table(db, table1, 1);
+	db_create_table(db, table1, sizeof(uuid_t));
 	db_create_table(db, table2, 2);
 	const char* first_table = db_first_table(db);
 	const char* next_table = db_next_table(db, first_table);
