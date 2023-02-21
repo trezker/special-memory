@@ -7,11 +7,24 @@ typedef struct {
 	uint32_t num_cells;
 } Leaf;
 
+#define INTERNAL_NODE_MAX_CELLS PAGE_SIZE/sizeof(uint32_t)-2
+
+typedef struct {
+	uint32_t num_cells;
+	uint32_t last_child;
+	uint32_t cells[INTERNAL_NODE_MAX_CELLS];
+} Internal;
+
+uint32_t leaf_max_cells(Table* table) {
+	return (PAGE_SIZE-sizeof(Leaf))/table->cell_size;
+}
+
 void* leaf_node_cell(void* node, uint32_t cell_num, uint32_t cell_size) {
 	return node + sizeof(Leaf) + cell_num * cell_size;
 }
 
 Database* db_open() {
+	printf("Internal node size: %li\n", sizeof(Internal));
 	Database* db = malloc(sizeof(Database));
 	db->num_tables = 0;
 	db->tables = NULL;
@@ -42,6 +55,8 @@ void db_create_table(Database* db, const char* name, uint32_t cell_size) {
 	db->tables = realloc(db->tables, sizeof(Table)*(db->num_tables+1));
 	strncpy(db->tables[db->num_tables].name, name, 64);
 	db->tables[db->num_tables].cell_size = cell_size;
+	printf("Leaf max cells: %i\n", leaf_max_cells(&db->tables[db->num_tables]));
+	printf("Leaf node size: %i\n", sizeof(Leaf) + cell_size*(leaf_max_cells(&db->tables[db->num_tables])));
 
  	Pager* pager = db_open_pager();
 	db->tables[db->num_tables].pager = pager;
@@ -49,7 +64,6 @@ void db_create_table(Database* db, const char* name, uint32_t cell_size) {
 
 	Leaf *node = db_get_page(pager, 0);
 	node->num_cells = 0;
-	//*leaf_node_num_cells(node) = 0;
 
 	db->num_tables++;
 }
