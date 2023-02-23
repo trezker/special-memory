@@ -125,12 +125,20 @@ void test_cursor_can_step_through_a_table() {
 	strncpy(in2.text, "Harry", 256);
 	db_insert(db, table, &in2);
 
+	Stuff out;
 	Cursor cursor;
 	db_table_start(db, "stuff", &cursor);
-	Stuff out;
 	db_cursor_value(&cursor, &out);
-
+	assert_equal(false, cursor.end)
 	assert_equal_uuid(in1.id, out.id);
+
+	db_cursor_next(&cursor);
+	db_cursor_value(&cursor, &out);
+	assert_equal(false, cursor.end)
+	assert_equal_uuid(in2.id, out.id);
+
+	db_cursor_next(&cursor);
+	assert_equal(true, cursor.end)
 
 	db_close(db);
 }

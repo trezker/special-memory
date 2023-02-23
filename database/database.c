@@ -121,11 +121,21 @@ void db_table_start(Database* db, const char* tablename, Cursor* cursor) {
 	cursor->table = &db->tables[i];
 	cursor->page = 0;
 	cursor->cell = 0;
+	cursor->end = false;
 }
 
 void db_cursor_value(Cursor* cursor, void* out) {
 	Table* table = cursor->table;
 	Leaf* node = db_get_page(table->pager, 0);
-	void* cell = leaf_node_cell(node, 0, table->cell_size);
+	void* cell = leaf_node_cell(node, cursor->cell, table->cell_size);
 	memcpy(out, cell, table->cell_size);
+}
+
+void db_cursor_next(Cursor* cursor) {
+	++cursor->cell;
+	Table* table = cursor->table;
+	Leaf* node = db_get_page(table->pager, 0);
+	if(cursor->cell >= node->header.num_cells) {
+		cursor->end = true;
+	}
 }

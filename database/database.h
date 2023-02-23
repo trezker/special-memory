@@ -21,7 +21,7 @@ typedef struct {
 	Table* table;
 	uint32_t page;
 	uint32_t cell;
-	bool end_of_table;
+	bool end;
 } Cursor;
 
 Database* db_open();
@@ -34,5 +34,6 @@ void db_select(Database* db, const char* table, uuid_t id, void* data);
 
 void db_table_start(Database* db, const char* table, Cursor* cursor);
 void db_cursor_value(Cursor* cursor, void* out);
+void db_cursor_next(Cursor* cursor);
 
 #endif
