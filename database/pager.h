@@ -2,9 +2,11 @@
 #define PAGER_H
 
 #include <stdint.h>
+#include <unistd.h>
 
 #define MAX_PAGES 100
 #define PAGE_SIZE 4096
+
 
 typedef struct {
 	uint32_t num_pages;

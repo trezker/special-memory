@@ -35,8 +35,8 @@ void* leaf_node_cell(Leaf* node, uint32_t cell_num, uint32_t cell_size) {
 }
 
 Database* db_open() {
-	printf("Internal node size: %li\n", sizeof(Internal));
-	printf("Internal max_cells: %li\n", INTERNAL_NODE_MAX_CELLS);
+//	printf("Internal node size: %li\n", sizeof(Internal));
+//	printf("Internal max_cells: %li\n", INTERNAL_NODE_MAX_CELLS);
 	Database* db = malloc(sizeof(Database));
 	db->num_tables = 0;
 	db->tables = NULL;
@@ -67,8 +67,8 @@ void db_create_table(Database* db, const char* name, uint32_t cell_size) {
 	db->tables = realloc(db->tables, sizeof(Table)*(db->num_tables+1));
 	strncpy(db->tables[db->num_tables].name, name, 64);
 	db->tables[db->num_tables].cell_size = cell_size;
-	printf("Leaf max cells: %i\n", leaf_max_cells(&db->tables[db->num_tables]));
-	printf("Leaf node size: %li\n", sizeof(uint32_t)*2 + cell_size*(leaf_max_cells(&db->tables[db->num_tables])));
+//	printf("Leaf max cells: %i\n", leaf_max_cells(&db->tables[db->num_tables]));
+//	printf("Leaf node size: %li\n", sizeof(uint32_t)*2 + cell_size*(leaf_max_cells(&db->tables[db->num_tables])));
 
  	Pager* pager = db_open_pager();
 	db->tables[db->num_tables].pager = pager;
@@ -114,4 +114,18 @@ void db_select(Database* db, const char* tablename, uuid_t id, void* data) {
 			return;
 		}
 	}
+}
+
+void db_table_start(Database* db, const char* tablename, Cursor* cursor) {
+	uint32_t i = db_find_table(db, tablename);
+	cursor->table = &db->tables[i];
+	cursor->page = 0;
+	cursor->cell = 0;
+}
+
+void db_cursor_value(Cursor* cursor, void* out) {
+	Table* table = cursor->table;
+	Leaf* node = db_get_page(table->pager, 0);
+	void* cell = leaf_node_cell(node, 0, table->cell_size);
+	memcpy(out, cell, table->cell_size);
 }

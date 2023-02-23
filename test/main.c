@@ -92,22 +92,6 @@ void test_database_can_insert_and_select_data() {
 
 	db_close(db);
 }
-/*
-void test_database_can_insert_more_than_one_page_of_data() {
-	Database* db = db_open();
-	const char* table = "stuff";
-	db_create_table(db, table, sizeof(Stuff));
-
-	Stuff in;
-	for(int i=0; i<16; ++i) {
-		in.id = i;
-		sprintf(in.text, "Name%i", i);
-		db_insert(db, table, &in);
-	}
-
-	db_close(db);
-}
-*/
 
 void test_pager_can_be_opened_and_closed() {
 	Pager* pager = db_open_pager();
@@ -127,6 +111,30 @@ void test_pager_provides_writable_pages() {
 	db_close_pager(pager);
 }
 
+void test_cursor_can_step_through_a_table() {
+	Database* db = db_open();
+	const char* table = "stuff";
+	db_create_table(db, table, sizeof(Stuff));
+
+	Stuff in1;
+	uuid_generate(in1.id);
+	strncpy(in1.text, "Hagrid", 256);
+	db_insert(db, table, &in1);
+	Stuff in2;
+	uuid_generate(in2.id);
+	strncpy(in2.text, "Harry", 256);
+	db_insert(db, table, &in2);
+
+	Cursor cursor;
+	db_table_start(db, "stuff", &cursor);
+	Stuff out;
+	db_cursor_value(&cursor, &out);
+
+	assert_equal_uuid(in1.id, out.id);
+
+	db_close(db);
+}
+
 typedef struct {
 	void (*f)(void);
 	uint32_t line;
@@ -140,12 +148,15 @@ typedef struct {
 
 /*
 TODO:
-Use uuid.h
+Write tests to implement functions using Cursor.
+Implement btree.
 Don't define columns, but create index giving type and offset.
 */
 int main(int argc, char* argv[]) {
 	printf("Stuff: %li\n", sizeof(Stuff));
 	printf("uuid: %li\n", sizeof(uuid_t));
+	printf("System pagesize: %ld\n", sysconf(_SC_PAGESIZE));
+	
 	clear_allocations();
 
 	int num_tests = 0;
@@ -155,10 +166,11 @@ int main(int argc, char* argv[]) {
 	add_test(test_database_can_create_multiple_tables);
 	add_test(test_database_can_not_create_duplicate_tables);
 	add_test(test_database_can_insert_and_select_data);
-	//add_test(test_database_can_insert_more_than_one_page_of_data);
 
 	add_test(test_pager_can_be_opened_and_closed);
 	add_test(test_pager_provides_writable_pages);
+
+	add_test(test_cursor_can_step_through_a_table);
 
 	for(int i=0; i<num_tests; ++i) {
 		tests[i].f();
