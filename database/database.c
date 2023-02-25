@@ -8,17 +8,21 @@ typedef struct {
 	uint32_t page;
 } Child;
 
-#define NODE_SPACE_FOR_CELLS (PAGE_SIZE-sizeof(struct {uint8_t a;	uint8_t b;	uint32_t c;	uint32_t d;}))
+#define NODE_HEADER struct { \
+	uint8_t type; \
+	uint8_t num_cells; \
+	uint32_t parent; \
+	union { \
+		uint32_t next_leaf; \
+		uint32_t last_child; \
+	}; \
+}
+
+#define NODE_SPACE_FOR_CELLS (PAGE_SIZE-sizeof(NODE_HEADER))
 #define INTERNAL_NODE_MAX_CELLS (NODE_SPACE_FOR_CELLS/sizeof(Child))
 
 typedef struct {
-	uint8_t type;
-	uint8_t num_cells;
-	uint32_t parent;
-	union {
-		uint32_t next_leaf;
-		uint32_t last_child;
-	};
+	NODE_HEADER;
 	union {
 		uint8_t cellspace[NODE_SPACE_FOR_CELLS];
 		Child children[INTERNAL_NODE_MAX_CELLS];
