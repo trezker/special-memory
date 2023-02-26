@@ -104,7 +104,10 @@ void db_insert(Database* db, const char* tablename, void* data) {
 	if(node->num_cells == max_cells) {
 		uint32_t next_page = db_get_unused_page(table->pager);
 		Node* next_node = db_get_page(table->pager, next_page);
-		next_node->num_cells = 0;
+		next_node->num_cells = max_cells/2;
+		node->num_cells -= next_node->num_cells;
+		void* from = leaf_node_cell(node, node->num_cells, table->cell_size);
+		memcpy(next_node->cellspace, from, next_node->num_cells*table->cell_size);
 		next_node->next_leaf = node->next_leaf;
 		node->next_leaf = next_page;
 		node = next_node;
