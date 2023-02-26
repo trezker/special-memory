@@ -100,8 +100,8 @@ void db_insert(Database* db, const char* tablename, void* data) {
 	uint32_t i = db_find_table(db, tablename);
 	Table* table = &db->tables[i];
 	Node* node = db_get_page(table->pager, 0);
-
-	if(node->num_cells == leaf_max_cells(table)) {
+	uint32_t max_cells = leaf_max_cells(table);
+	if(node->num_cells == max_cells) {
 		uint32_t next_page = db_get_unused_page(table->pager);
 		Node* next_node = db_get_page(table->pager, next_page);
 		next_node->num_cells = 0;
@@ -138,7 +138,7 @@ void db_table_start(Database* db, const char* tablename, Cursor* cursor) {
 
 void db_cursor_value(Cursor* cursor, void* out) {
 	Table* table = cursor->table;
-	Node* node = db_get_page(table->pager, 0);
+	Node* node = db_get_page(table->pager, cursor->page);
 	void* cell = leaf_node_cell(node, cursor->cell, table->cell_size);
 	memcpy(out, cell, table->cell_size);
 }

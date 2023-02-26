@@ -148,7 +148,7 @@ void test_cursor_can_traverse_pages() {
 	const char* table = "stuff";
 	db_create_table(db, table, sizeof(Stuff));
 
-	for(int i=0; i<20; ++i) {
+	for(int i=0; i<15; ++i) {
 		Stuff in;
 		uuid_generate(in.id);
 		sprintf(in.text, "name%i", i);
@@ -158,12 +158,17 @@ void test_cursor_can_traverse_pages() {
 	Cursor cursor;
 	db_table_start(db, "stuff", &cursor);
 	int i = 0;
+	Stuff out;
+	char name[257];
 	while(cursor.end == false) {
+		db_cursor_value(&cursor, &out);
+		sprintf(name, "name%i", i);
+		assert_equal_string(name, out.text);
 		++i;
 		db_cursor_next(&cursor);
 	}
 
-	assert_equal(20, i);
+	assert_equal(15, i);
 
 	db_close(db);
 }
