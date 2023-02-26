@@ -143,6 +143,31 @@ void test_cursor_can_step_through_a_table() {
 	db_close(db);
 }
 
+void test_cursor_can_traverse_pages() {
+	Database* db = db_open();
+	const char* table = "stuff";
+	db_create_table(db, table, sizeof(Stuff));
+
+	for(int i=0; i<20; ++i) {
+		Stuff in;
+		uuid_generate(in.id);
+		sprintf(in.text, "name%i", i);
+		db_insert(db, table, &in);
+	}
+
+	Cursor cursor;
+	db_table_start(db, "stuff", &cursor);
+	int i = 0;
+	while(cursor.end == false) {
+		++i;
+		db_cursor_next(&cursor);
+	}
+
+	assert_equal(20, i);
+
+	db_close(db);
+}
+
 typedef struct {
 	void (*f)(void);
 	uint32_t line;
@@ -179,6 +204,7 @@ int main(int argc, char* argv[]) {
 	add_test(test_pager_provides_writable_pages);
 
 	add_test(test_cursor_can_step_through_a_table);
+	add_test(test_cursor_can_traverse_pages);
 
 	for(int i=0; i<num_tests; ++i) {
 		tests[i].f();
