@@ -144,6 +144,7 @@ void db_cursor_value(Cursor* cursor, void* out) {
 	Node* node = db_get_page(table->pager, cursor->page);
 	void* cell = leaf_node_cell(node, cursor->cell, table->cell_size);
 	memcpy(out, cell, table->cell_size);
+//	hexDump(NULL, node, PAGE_SIZE);
 }
 
 void db_cursor_next(Cursor* cursor) {

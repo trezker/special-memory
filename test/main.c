@@ -148,24 +148,39 @@ void test_cursor_can_traverse_pages() {
 	const char* table = "stuff";
 	db_create_table(db, table, sizeof(Stuff));
 
+	char suuid[36];
 	for(int i=0; i<15; ++i) {
 		Stuff in;
-		uuid_generate(in.id);
+		uuid_generate_time_safe(in.id);
+		
+//		uuid_unparse(in.id, suuid);
+//		printf("%s\n", suuid);
+
 		sprintf(in.text, "name%i", i);
 		db_insert(db, table, &in);
 	}
 
-	Cursor cursor;
-	db_table_start(db, "stuff", &cursor);
 	int i = 0;
 	Stuff out;
-	char name[257];
+	uuid_t prev;
+	Cursor cursor;
+	db_table_start(db, "stuff", &cursor);
+	db_cursor_value(&cursor, &out);
 	while(cursor.end == false) {
-		db_cursor_value(&cursor, &out);
-		sprintf(name, "name%i", i);
-		assert_equal_string(name, out.text);
+//		uuid_unparse(out.id, suuid);
+//		printf("%s\n", suuid);
+		uuid_copy(prev, out.id);
+//		printf("Checking %i Page: %i Cell: %i UUID: %s, Text: %s\n", i, cursor.page, cursor.cell, suuid, out.text);
+//		hexDump(NULL, &out, sizeof(Stuff));
 		++i;
 		db_cursor_next(&cursor);
+		if(cursor.end == false) {
+			db_cursor_value(&cursor, &out);
+//			uuid_unparse(out.id, suuid);
+//			printf("Checking %i Page: %i Cell: %i UUID: %s, Text: %s\n", i, cursor.page, cursor.cell, suuid, out.text);
+//			hexDump(NULL, &out, sizeof(Stuff));
+			assert_less_than_uuid(prev, out.id);
+		}
 	}
 
 	assert_equal(15, i);
@@ -186,7 +201,6 @@ typedef struct {
 
 /*
 TODO:
-Write tests to implement functions using Cursor.
 Implement btree.
 Don't define columns, but create index giving type and offset.
 */
