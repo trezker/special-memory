@@ -117,11 +117,11 @@ void test_cursor_can_step_through_a_table() {
 	db_create_table(db, table, sizeof(Stuff));
 
 	Stuff in1;
-	uuid_generate(in1.id);
+	uuid_generate_time(in1.id);
 	strncpy(in1.text, "Hagrid", 256);
 	db_insert(db, table, &in1);
 	Stuff in2;
-	uuid_generate(in2.id);
+	uuid_generate_time(in2.id);
 	strncpy(in2.text, "Harry", 256);
 	db_insert(db, table, &in2);
 
@@ -151,7 +151,7 @@ void test_cursor_can_traverse_pages() {
 	char suuid[36];
 	for(int i=0; i<15; ++i) {
 		Stuff in;
-		uuid_generate_time_safe(in.id);
+		uuid_generate(in.id);
 		
 //		uuid_unparse(in.id, suuid);
 //		printf("%s\n", suuid);

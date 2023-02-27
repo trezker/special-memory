@@ -3,6 +3,57 @@
 #include <string.h>
 #include "database.h"
 
+void hexDumps (char *desc, void *addr, int len) {
+    int i;
+    unsigned char buff[17];       // stores the ASCII data
+    unsigned char *pc = addr;     // cast to make the code cleaner.
+
+    // Output description if given.
+
+    if (desc != NULL)
+        printf ("%s:\n", desc);
+
+    // Process every byte in the data.
+
+    for (i = 0; i < len; i++) {
+        // Multiple of 16 means new line (with line offset).
+
+        if ((i % 16) == 0) {
+            // Just don't print ASCII for the zeroth line.
+
+            if (i != 0)
+                printf ("  %s\n", buff);
+
+            // Output the offset.
+
+            printf ("  %04x ", i);
+        }
+
+        // Now the hex code for the specific character.
+
+        printf (" %02x", pc[i]);
+
+        // And store a printable ASCII character for later.
+
+        if ((pc[i] < 0x20) || (pc[i] > 0x7e))
+            buff[i % 16] = '.';
+        else
+            buff[i % 16] = pc[i];
+        buff[(i % 16) + 1] = '\0';
+    }
+
+    // Pad out last line if not exactly 16 characters.
+
+    while ((i % 16) != 0) {
+        printf ("   ");
+        i++;
+    }
+
+    // And print the final ASCII bit.
+
+    printf ("  %s\n", buff);
+}
+
 typedef struct {
 	uuid_t key;
 	uint32_t page;
@@ -100,6 +151,8 @@ void db_insert(Database* db, const char* tablename, void* data) {
 	uint32_t i = db_find_table(db, tablename);
 	Table* table = &db->tables[i];
 	Node* node = db_get_page(table->pager, 0);
+
+	//Split if full
 	uint32_t max_cells = leaf_max_cells(table);
 	if(node->num_cells == max_cells) {
 		uint32_t next_page = db_get_unused_page(table->pager);
@@ -112,6 +165,18 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		node->next_leaf = next_page;
 		node = next_node;
 	}
+
+	//Insert in right place
+	for(int i=0; i<node->num_cells; ++i) {
+		void* cell = leaf_node_cell(node, i, table->cell_size);
+		if(uuid_compare(*(uuid_t*)cell, *(uuid_t*)data) > 0) {
+			memmove(cell+table->cell_size, cell, (node->num_cells-i)*table->cell_size);
+			memcpy(cell, data, table->cell_size);
+			node->num_cells += 1;
+			return;
+		}
+	}
+	//Or add at end
 	void* cell = leaf_node_cell(node, node->num_cells, table->cell_size);
 	memcpy(cell, data, table->cell_size);
 	node->num_cells += 1;
@@ -144,7 +209,7 @@ void db_cursor_value(Cursor* cursor, void* out) {
 	Node* node = db_get_page(table->pager, cursor->page);
 	void* cell = leaf_node_cell(node, cursor->cell, table->cell_size);
 	memcpy(out, cell, table->cell_size);
-//	hexDump(NULL, node, PAGE_SIZE);
+	//hexDumps("Page", node, PAGE_SIZE);
 }
 
 void db_cursor_next(Cursor* cursor) {
