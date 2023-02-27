@@ -163,7 +163,10 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		memcpy(next_node->cellspace, from, next_node->num_cells*table->cell_size);
 		next_node->next_leaf = node->next_leaf;
 		node->next_leaf = next_page;
-		node = next_node;
+		//Which node the new value should be in
+		if(uuid_compare(*(uuid_t*)next_node->cellspace, *(uuid_t*)data) < 0) {
+			node = next_node;
+		}
 	}
 
 	//Insert in right place

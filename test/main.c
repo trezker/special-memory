@@ -148,8 +148,9 @@ void test_cursor_can_traverse_pages() {
 	const char* table = "stuff";
 	db_create_table(db, table, sizeof(Stuff));
 
+	int num_items = 15;
 	char suuid[36];
-	for(int i=0; i<15; ++i) {
+	for(int i=0; i<num_items; ++i) {
 		Stuff in;
 		uuid_generate(in.id);
 		
@@ -183,7 +184,7 @@ void test_cursor_can_traverse_pages() {
 		}
 	}
 
-	assert_equal(15, i);
+	assert_equal(num_items, i);
 
 	db_close(db);
 }
