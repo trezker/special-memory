@@ -54,6 +54,8 @@ void hexDumps (char *desc, void *addr, int len) {
     printf ("  %s\n", buff);
 }
 
+typedef enum { NODE_INTERNAL, NODE_LEAF } NodeType;
+
 typedef struct {
 	uuid_t key;
 	uint32_t page;
@@ -129,8 +131,10 @@ void db_create_table(Database* db, const char* name, uint32_t cell_size) {
 	db_get_unused_page(pager);
 
 	Node *node = db_get_page(pager, 0);
+	memset(node, 0, PAGE_SIZE);
 	node->num_cells = 0;
 	node->next_leaf = 0;
+	node->type = NODE_LEAF;
 
 	db->num_tables++;
 }
@@ -151,18 +155,55 @@ void db_insert(Database* db, const char* tablename, void* data) {
 	uint32_t i = db_find_table(db, tablename);
 	Table* table = &db->tables[i];
 	Node* node = db_get_page(table->pager, 0);
+	bool is_root = true;
+
+	while(node->type == NODE_INTERNAL) {
+		node = db_get_page(table->pager, node->children[0].page);
+	}
 
 	//Split if full
 	uint32_t max_cells = leaf_max_cells(table);
 	if(node->num_cells == max_cells) {
 		uint32_t next_page = db_get_unused_page(table->pager);
 		Node* next_node = db_get_page(table->pager, next_page);
+		memset(next_node, 0, PAGE_SIZE);
 		next_node->num_cells = max_cells/2;
 		node->num_cells -= next_node->num_cells;
 		void* from = leaf_node_cell(node, node->num_cells, table->cell_size);
 		memcpy(next_node->cellspace, from, next_node->num_cells*table->cell_size);
 		next_node->next_leaf = node->next_leaf;
 		node->next_leaf = next_page;
+
+		//Need to create new root
+		if(is_root) {
+			uint32_t child_page = db_get_unused_page(table->pager);
+			Node* child_node = db_get_page(table->pager, child_page);
+			memcpy(child_node, node, PAGE_SIZE);
+			memset(node, 0, PAGE_SIZE);
+			child_node->parent = 0;
+
+			node->num_cells = 1;
+			node->type = NODE_INTERNAL;
+			node->parent = 0;
+			if(child_node->type == NODE_LEAF) {
+				void* from = leaf_node_cell(child_node, child_node->num_cells-1, table->cell_size);
+				uuid_copy(node->children[0].key, *(uuid_t*)from);
+			}
+			else {
+				uuid_copy(node->children[0].key, child_node->children[child_node->num_cells-1].key);
+			}
+			node->children[0].page = child_page;
+//			printf("Root child page: %i\n", node->children[0].page);
+			node->last_child = next_page;
+
+			node = child_node;
+			is_root = false;
+		}
+		//TODO: update parent
+		else {
+
+		}
+
 		//Which node the new value should be in
 		if(uuid_compare(*(uuid_t*)next_node->cellspace, *(uuid_t*)data) < 0) {
 			node = next_node;
@@ -183,6 +224,13 @@ void db_insert(Database* db, const char* tablename, void* data) {
 	void* cell = leaf_node_cell(node, node->num_cells, table->cell_size);
 	memcpy(cell, data, table->cell_size);
 	node->num_cells += 1;
+
+	//Update parent
+	if(is_root == false) {
+		Node* parent_node = db_get_page(table->pager, node->parent);
+		//TODO: Look up which child to update.
+		uuid_copy(parent_node->children[0].key, *(uuid_t*)data);
+	}
 }
 
 void db_select(Database* db, const char* tablename, uuid_t id, void* data) {
@@ -205,6 +253,16 @@ void db_table_start(Database* db, const char* tablename, Cursor* cursor) {
 	cursor->page = 0;
 	cursor->cell = 0;
 	cursor->end = false;
+	Node* node = db_get_page(cursor->table->pager, 0);
+/*	if(node->type == NODE_INTERNAL) {
+		printf("First child page: %i\n", node->children[0].page);
+		hexDumps("Internal node", node, 128);
+	}*/
+	while(node->type == NODE_INTERNAL) {
+		//printf("First child page: %i\n", node->children[0].page);
+		cursor->page = node->children[0].page;
+		node = db_get_page(cursor->table->pager, node->children[0].page);
+	}
 }
 
 void db_cursor_value(Cursor* cursor, void* out) {
@@ -216,6 +274,7 @@ void db_cursor_value(Cursor* cursor, void* out) {
 }
 
 void db_cursor_next(Cursor* cursor) {
+//	printf("Cursor: page %i, cell %i\n", cursor->page, cursor->cell);
 	++cursor->cell;
 	Table* table = cursor->table;
 	Node* node = db_get_page(table->pager, cursor->page);
@@ -226,5 +285,8 @@ void db_cursor_next(Cursor* cursor) {
 		}
 		cursor->cell = 0;
 		cursor->page = node->next_leaf;
+//		printf("Next leaf: %i\n", node->next_leaf);
+		node = db_get_page(table->pager, cursor->page);
+//		hexDumps("Page", node, PAGE_SIZE);
 	}
 }
