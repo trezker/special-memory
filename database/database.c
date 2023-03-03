@@ -152,13 +152,24 @@ const char* db_next_table(Database* db, const char* name) {
 }
 
 void db_insert(Database* db, const char* tablename, void* data) {
-	uint32_t i = db_find_table(db, tablename);
-	Table* table = &db->tables[i];
+	uint32_t ti = db_find_table(db, tablename);
+	Table* table = &db->tables[ti];
 	Node* node = db_get_page(table->pager, 0);
 	bool is_root = true;
 
 	while(node->type == NODE_INTERNAL) {
-		node = db_get_page(table->pager, node->children[0].page);
+	//	printf("Internal node cells: %i\n", node->num_cells);
+		uint32_t page = node->last_child;
+		for(int i=0; i<node->num_cells; ++i) {
+			if(uuid_compare(node->children[i].key, *(uuid_t*)data) > 0) {
+				page = node->children[i].page;
+				break;
+			}
+		}
+//		printf("Loading page #%i\n", page);
+		node = db_get_page(table->pager, page);
+//		printf("Type: %i\n", node->type);
+		is_root = false;
 	}
 
 	//Split if full
@@ -167,6 +178,7 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		uint32_t next_page = db_get_unused_page(table->pager);
 		Node* next_node = db_get_page(table->pager, next_page);
 		memset(next_node, 0, PAGE_SIZE);
+		next_node->type = NODE_LEAF;
 		next_node->num_cells = max_cells/2;
 		node->num_cells -= next_node->num_cells;
 		void* from = leaf_node_cell(node, node->num_cells, table->cell_size);
@@ -195,6 +207,10 @@ void db_insert(Database* db, const char* tablename, void* data) {
 			node->children[0].page = child_page;
 //			printf("Root child page: %i\n", node->children[0].page);
 			node->last_child = next_page;
+//			printf("Root last child page: %i\n", node->last_child);
+			
+//			printf("child_node type: %i\n", child_node->type);
+//			printf("root node type: %i\n", node->type);
 
 			node = child_node;
 			is_root = false;
