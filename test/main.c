@@ -214,7 +214,7 @@ int main(int argc, char* argv[]) {
 
 	int num_tests = 0;
 	Test tests[16];
-	/*
+	
 	add_test(test_database_can_be_opened_and_closed);
 	add_test(test_database_can_create_a_table);
 	add_test(test_database_can_create_multiple_tables);
@@ -224,7 +224,7 @@ int main(int argc, char* argv[]) {
 	add_test(test_pager_can_be_opened_and_closed);
 	add_test(test_pager_provides_writable_pages);
 
-	add_test(test_cursor_can_step_through_a_table);*/
+	add_test(test_cursor_can_step_through_a_table);
 	add_test(test_cursor_can_traverse_pages);
 
 	for(int i=0; i<num_tests; ++i) {
