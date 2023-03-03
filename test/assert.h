@@ -37,13 +37,15 @@
 	} \
 }
 
-#define assert_less_than_uuid(a, b) { \
+#define assert_less_than_uuid_m(a, b, msg) { \
 	if(uuid_compare(a, b) > 0) { \
 		char uta[36]; \
 		char utb[36]; \
 		uuid_unparse(a, uta); \
 		uuid_unparse(b, utb); \
-		printf("%s:%i: \n\tExpected <: \"%s\" \n\tActual:     \"%s\"\n", __FILE__, __LINE__, uta, utb); \
+		printf("%s:%i: \n\tExpected <: \"%s\" \n\tActual:     \"%s\"\n%s\n", __FILE__, __LINE__, uta, utb, msg); \
 		exit(EXIT_FAILURE); \
 	} \
 }
+
+#define assert_less_than_uuid(a, b) assert_less_than_uuid_m(a, b, "")

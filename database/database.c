@@ -154,12 +154,13 @@ const char* db_next_table(Database* db, const char* name) {
 void db_insert(Database* db, const char* tablename, void* data) {
 	uint32_t ti = db_find_table(db, tablename);
 	Table* table = &db->tables[ti];
-	Node* node = db_get_page(table->pager, 0);
+	uint32_t page = 0;
+	Node* node = db_get_page(table->pager, page);
 	bool is_root = true;
 
 	while(node->type == NODE_INTERNAL) {
 	//	printf("Internal node cells: %i\n", node->num_cells);
-		uint32_t page = node->last_child;
+		page = node->last_child;
 		for(int i=0; i<node->num_cells; ++i) {
 			if(uuid_compare(node->children[i].key, *(uuid_t*)data) > 0) {
 				page = node->children[i].page;
@@ -175,6 +176,7 @@ void db_insert(Database* db, const char* tablename, void* data) {
 	//Split if full
 	uint32_t max_cells = leaf_max_cells(table);
 	if(node->num_cells == max_cells) {
+		printf("Splitting page %i\n", page);
 		uint32_t next_page = db_get_unused_page(table->pager);
 		Node* next_node = db_get_page(table->pager, next_page);
 		memset(next_node, 0, PAGE_SIZE);
@@ -217,7 +219,13 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		}
 		//TODO: update parent
 		else {
-
+			Node* parent = db_get_page(table->pager, node->parent);
+			void* from = leaf_node_cell(node, node->num_cells-1, table->cell_size);
+			//TODO: Look up nodes position if leaf in middle splits
+			uuid_copy(node->children[1].key, *(uuid_t*)from);
+			node->children[1].page = page;
+			parent->num_cells++;
+			parent->last_child = next_page; //Not always!
 		}
 
 		//Which node the new value should be in
