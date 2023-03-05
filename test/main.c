@@ -6,6 +6,18 @@
 #include "../database/database.h"
 #include "../database/pager.h"
 
+uuid_t last_reverse_id;
+
+void uuid_generate_reverse(uuid_t u) {
+	uuid_copy(u, last_reverse_id);
+	int i = 15;
+	while(last_reverse_id[i] == 0) {
+		--last_reverse_id[i];
+		--i;
+	}
+	--last_reverse_id[i];
+}
+
 typedef struct {
 	uuid_t id;
 	char text[257];
@@ -148,14 +160,14 @@ void test_cursor_can_traverse_pages() {
 	const char* table = "stuff";
 	db_create_table(db, table, sizeof(Stuff));
 
-	int num_items = 23;
+	int num_items = 40;
 	char suuid[36];
 	for(int i=0; i<num_items; ++i) {
 		Stuff in;
-		uuid_generate_time(in.id);
+		uuid_generate(in.id);
 		
 		uuid_unparse(in.id, suuid);
-//		printf("%s\n", suuid);
+		printf("%s\n", suuid);
 
 		sprintf(in.text, "name%i", i);
 		db_insert(db, table, &in);
@@ -228,6 +240,7 @@ int main(int argc, char* argv[]) {
 	add_test(test_cursor_can_traverse_pages);
 
 	for(int i=0; i<num_tests; ++i) {
+		memset(last_reverse_id, 255, sizeof(uuid_t));
 		tests[i].f();
 		if(!check_allocations()) {
 			printf("Memory fault on test at line #%i\n", tests[i].line);

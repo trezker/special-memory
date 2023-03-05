@@ -215,22 +215,42 @@ void db_insert(Database* db, const char* tablename, void* data) {
 //			printf("root node type: %i\n", node->type);
 
 			node = child_node;
+			page = child_page;
 			is_root = false;
 		}
-		//TODO: update parent
+		//update parent
 		else {
+			printf("Updating parent\n");
 			Node* parent = db_get_page(table->pager, node->parent);
 			void* from = leaf_node_cell(node, node->num_cells-1, table->cell_size);
-			//TODO: Look up nodes position if leaf in middle splits
-			uuid_copy(node->children[1].key, *(uuid_t*)from);
-			node->children[1].page = page;
-			parent->num_cells++;
-			parent->last_child = next_page; //Not always!
+			//TODO: Why not just store last child at the end of children and eliminate the special case?
+			if(parent->last_child == page) {
+				uuid_copy(parent->children[parent->num_cells].key, *(uuid_t*)from);
+				parent->children[parent->num_cells].page = page;
+				parent->num_cells++;
+				parent->last_child = next_page;
+			}
+			else {
+				for(int i=0;i<parent->num_cells; ++i) {
+					if(parent->children[i].page == page) {
+						uuid_copy(parent->children[i].key, *(uuid_t*)from);
+						if(i<parent->num_cells-1) {
+							memmove(&parent->children[i+1], &parent->children[i+2], sizeof(Child)*(parent->num_cells-i-1));
+						}
+						void* from = leaf_node_cell(next_node, next_node->num_cells-1, table->cell_size);
+						uuid_copy(parent->children[i+1].key, *(uuid_t*)from);
+						parent->children[i+1].page = next_page;
+						parent->num_cells++;
+						break;
+					}
+				}
+			}
 		}
 
 		//Which node the new value should be in
 		if(uuid_compare(*(uuid_t*)next_node->cellspace, *(uuid_t*)data) < 0) {
 			node = next_node;
+			page = next_page;
 		}
 	}
 
@@ -252,8 +272,11 @@ void db_insert(Database* db, const char* tablename, void* data) {
 	//Update parent
 	if(is_root == false) {
 		Node* parent_node = db_get_page(table->pager, node->parent);
-		//TODO: Look up which child to update.
-		uuid_copy(parent_node->children[0].key, *(uuid_t*)data);
+		for(int i=0;i<parent_node->num_cells; ++i) {
+			if(parent_node->children[i].page == page) {
+				uuid_copy(parent_node->children[i].key, *(uuid_t*)data);
+			}
+		}
 	}
 }
 
