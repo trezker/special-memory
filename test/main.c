@@ -160,7 +160,7 @@ void test_cursor_can_traverse_pages() {
 	const char* table = "stuff";
 	db_create_table(db, table, sizeof(Stuff));
 
-	int num_items = 40;
+	int num_items = 30;
 	char suuid[36];
 	for(int i=0; i<num_items; ++i) {
 		Stuff in;

@@ -151,6 +151,23 @@ const char* db_next_table(Database* db, const char* name) {
 	return NULL;
 }
 
+void db_leaf_insert(Node* node, Table* table, void* data) {
+	//Insert in right place
+	for(int i=0; i<node->num_cells; ++i) {
+		void* cell = leaf_node_cell(node, i, table->cell_size);
+		if(uuid_compare(*(uuid_t*)cell, *(uuid_t*)data) > 0) {
+			memmove(cell+table->cell_size, cell, (node->num_cells-i)*table->cell_size);
+			memcpy(cell, data, table->cell_size);
+			node->num_cells += 1;
+			return;
+		}
+	}
+	//Or add at end
+	void* cell = leaf_node_cell(node, node->num_cells, table->cell_size);
+	memcpy(cell, data, table->cell_size);
+	node->num_cells += 1;
+}
+
 void db_insert(Database* db, const char* tablename, void* data) {
 	uint32_t ti = db_find_table(db, tablename);
 	Table* table = &db->tables[ti];
@@ -172,109 +189,91 @@ void db_insert(Database* db, const char* tablename, void* data) {
 //		printf("Type: %i\n", node->type);
 		is_root = false;
 	}
-
-	//Split if full
-	uint32_t max_cells = leaf_max_cells(table);
-	if(node->num_cells == max_cells) {
-		printf("Splitting page %i\n", page);
-		uint32_t next_page = db_get_unused_page(table->pager);
-		Node* next_node = db_get_page(table->pager, next_page);
-		memset(next_node, 0, PAGE_SIZE);
-		next_node->type = NODE_LEAF;
-		next_node->num_cells = max_cells/2;
-		node->num_cells -= next_node->num_cells;
-		void* from = leaf_node_cell(node, node->num_cells, table->cell_size);
-		memcpy(next_node->cellspace, from, next_node->num_cells*table->cell_size);
-		next_node->next_leaf = node->next_leaf;
-		node->next_leaf = next_page;
-
-		//Need to create new root
-		if(is_root) {
-			uint32_t child_page = db_get_unused_page(table->pager);
-			Node* child_node = db_get_page(table->pager, child_page);
-			memcpy(child_node, node, PAGE_SIZE);
-			memset(node, 0, PAGE_SIZE);
-			child_node->parent = 0;
-
-			node->num_cells = 1;
-			node->type = NODE_INTERNAL;
-			node->parent = 0;
-			if(child_node->type == NODE_LEAF) {
-				void* from = leaf_node_cell(child_node, child_node->num_cells-1, table->cell_size);
-				uuid_copy(node->children[0].key, *(uuid_t*)from);
-			}
-			else {
-				uuid_copy(node->children[0].key, child_node->children[child_node->num_cells-1].key);
-			}
-			node->children[0].page = child_page;
-//			printf("Root child page: %i\n", node->children[0].page);
-			node->last_child = next_page;
-//			printf("Root last child page: %i\n", node->last_child);
-			
-//			printf("child_node type: %i\n", child_node->type);
-//			printf("root node type: %i\n", node->type);
-
-			node = child_node;
-			page = child_page;
-			is_root = false;
-		}
-		//update parent
-		else {
-			printf("Updating parent\n");
-			Node* parent = db_get_page(table->pager, node->parent);
-			void* from = leaf_node_cell(node, node->num_cells-1, table->cell_size);
-			//TODO: Why not just store last child at the end of children and eliminate the special case?
-			if(parent->last_child == page) {
-				uuid_copy(parent->children[parent->num_cells].key, *(uuid_t*)from);
-				parent->children[parent->num_cells].page = page;
-				parent->num_cells++;
-				parent->last_child = next_page;
-			}
-			else {
-				for(int i=0;i<parent->num_cells; ++i) {
-					if(parent->children[i].page == page) {
-						uuid_copy(parent->children[i].key, *(uuid_t*)from);
-						if(i<parent->num_cells-1) {
-							memmove(&parent->children[i+1], &parent->children[i+2], sizeof(Child)*(parent->num_cells-i-1));
-						}
-						void* from = leaf_node_cell(next_node, next_node->num_cells-1, table->cell_size);
-						uuid_copy(parent->children[i+1].key, *(uuid_t*)from);
-						parent->children[i+1].page = next_page;
-						parent->num_cells++;
-						break;
-					}
-				}
-			}
-		}
-
-		//Which node the new value should be in
-		if(uuid_compare(*(uuid_t*)next_node->cellspace, *(uuid_t*)data) < 0) {
-			node = next_node;
-			page = next_page;
-		}
-	}
-
-	//Insert in right place
-	for(int i=0; i<node->num_cells; ++i) {
-		void* cell = leaf_node_cell(node, i, table->cell_size);
-		if(uuid_compare(*(uuid_t*)cell, *(uuid_t*)data) > 0) {
-			memmove(cell+table->cell_size, cell, (node->num_cells-i)*table->cell_size);
-			memcpy(cell, data, table->cell_size);
-			node->num_cells += 1;
-			return;
-		}
-	}
-	//Or add at end
-	void* cell = leaf_node_cell(node, node->num_cells, table->cell_size);
-	memcpy(cell, data, table->cell_size);
-	node->num_cells += 1;
+	
+	db_leaf_insert(node, table, data);
 
 	//Update parent
 	if(is_root == false) {
 		Node* parent_node = db_get_page(table->pager, node->parent);
 		for(int i=0;i<parent_node->num_cells; ++i) {
 			if(parent_node->children[i].page == page) {
-				uuid_copy(parent_node->children[i].key, *(uuid_t*)data);
+				void* from = leaf_node_cell(node, node->num_cells-1, table->cell_size);
+				uuid_copy(parent_node->children[i].key, *(uuid_t*)from);
+			}
+		}
+	}
+
+	//Split if full
+	uint32_t max_cells = leaf_max_cells(table);
+	if(node->num_cells < max_cells) {
+		return;
+	}
+
+	printf("Splitting page %i\n", page);
+	uint32_t next_page = db_get_unused_page(table->pager);
+	Node* next_node = db_get_page(table->pager, next_page);
+	memset(next_node, 0, PAGE_SIZE);
+	next_node->type = NODE_LEAF;
+	next_node->num_cells = max_cells/2;
+	node->num_cells -= next_node->num_cells;
+	void* from = leaf_node_cell(node, node->num_cells, table->cell_size);
+	memcpy(next_node->cellspace, from, next_node->num_cells*table->cell_size);
+	next_node->next_leaf = node->next_leaf;
+	node->next_leaf = next_page;
+
+	//Need to create new root
+	if(is_root) {
+		uint32_t child_page = db_get_unused_page(table->pager);
+		Node* child_node = db_get_page(table->pager, child_page);
+		memcpy(child_node, node, PAGE_SIZE);
+		memset(node, 0, PAGE_SIZE);
+		child_node->parent = 0;
+
+		node->num_cells = 1;
+		node->type = NODE_INTERNAL;
+		node->parent = 0;
+		if(child_node->type == NODE_LEAF) {
+			void* from = leaf_node_cell(child_node, child_node->num_cells-1, table->cell_size);
+			uuid_copy(node->children[0].key, *(uuid_t*)from);
+		}
+		else {
+			uuid_copy(node->children[0].key, child_node->children[child_node->num_cells-1].key);
+		}
+		node->children[0].page = child_page;
+//		printf("Root child page: %i\n", node->children[0].page);
+		node->last_child = next_page;
+//		printf("Root last child page: %i\n", node->last_child);
+		
+//		printf("child_node type: %i\n", child_node->type);
+//		printf("root node type: %i\n", node->type);
+		return;
+	}
+
+	printf("Updating parent %i\n", node->parent);
+	Node* parent = db_get_page(table->pager, node->parent);
+	from = leaf_node_cell(node, node->num_cells-1, table->cell_size);
+	//TODO: Why not just store last child at the end of children and eliminate the special case?
+	if(parent->last_child == page) {
+		printf("Last child\n");
+		uuid_copy(parent->children[parent->num_cells].key, *(uuid_t*)from);
+		parent->children[parent->num_cells].page = page;
+		parent->num_cells++;
+		parent->last_child = next_page;
+	}
+	else {
+		for(int i=0;i<parent->num_cells; ++i) {
+			if(parent->children[i].page == page) {
+				printf("Child %i\n", i);
+				uuid_copy(parent->children[i].key, *(uuid_t*)from);
+				++i;
+				if(i<parent->num_cells) {
+					memmove(parent->children+i, parent->children+i+1, sizeof(Child)*(parent->num_cells-i));
+				}
+				from = leaf_node_cell(next_node, next_node->num_cells-1, table->cell_size);
+				uuid_copy(parent->children[i].key, *(uuid_t*)from);
+				parent->children[i].page = next_page;
+				parent->num_cells++;
+				break;
 			}
 		}
 	}
