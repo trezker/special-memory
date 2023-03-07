@@ -232,13 +232,8 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		node->num_cells = 1;
 		node->type = NODE_INTERNAL;
 		node->parent = 0;
-		if(child_node->type == NODE_LEAF) {
-			void* from = leaf_node_cell(child_node, child_node->num_cells-1, table->cell_size);
-			uuid_copy(node->children[0].key, *(uuid_t*)from);
-		}
-		else {
-			uuid_copy(node->children[0].key, child_node->children[child_node->num_cells-1].key);
-		}
+		void* from = leaf_node_cell(child_node, child_node->num_cells-1, table->cell_size);
+		uuid_copy(node->children[0].key, *(uuid_t*)from);
 		node->children[0].page = child_page;
 //		printf("Root child page: %i\n", node->children[0].page);
 		node->last_child = next_page;
@@ -259,22 +254,21 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		parent->children[parent->num_cells].page = page;
 		parent->num_cells++;
 		parent->last_child = next_page;
+		return;
 	}
-	else {
-		for(int i=0;i<parent->num_cells; ++i) {
-			if(parent->children[i].page == page) {
-				printf("Child %i\n", i);
-				uuid_copy(parent->children[i].key, *(uuid_t*)from);
-				++i;
-				if(i<parent->num_cells) {
-					memmove(parent->children+i, parent->children+i+1, sizeof(Child)*(parent->num_cells-i));
-				}
-				from = leaf_node_cell(next_node, next_node->num_cells-1, table->cell_size);
-				uuid_copy(parent->children[i].key, *(uuid_t*)from);
-				parent->children[i].page = next_page;
-				parent->num_cells++;
-				break;
+	for(int i=0;i<parent->num_cells; ++i) {
+		if(parent->children[i].page == page) {
+			printf("Child %i\n", i);
+			uuid_copy(parent->children[i].key, *(uuid_t*)from);
+			++i;
+			if(i<parent->num_cells) {
+				memmove(parent->children+i, parent->children+i+1, sizeof(Child)*(parent->num_cells-i));
 			}
+			from = leaf_node_cell(next_node, next_node->num_cells-1, table->cell_size);
+			uuid_copy(parent->children[i].key, *(uuid_t*)from);
+			parent->children[i].page = next_page;
+			parent->num_cells++;
+			return;
 		}
 	}
 }
