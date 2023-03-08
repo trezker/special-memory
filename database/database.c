@@ -209,7 +209,7 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		return;
 	}
 
-	printf("Splitting page %i\n", page);
+//	printf("Splitting page %i\n", page);
 	uint32_t next_page = db_get_unused_page(table->pager);
 	Node* next_node = db_get_page(table->pager, next_page);
 	memset(next_node, 0, PAGE_SIZE);
@@ -244,12 +244,11 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		return;
 	}
 
-	printf("Updating parent %i\n", node->parent);
+//	printf("Updating parent %i\n", node->parent);
 	Node* parent = db_get_page(table->pager, node->parent);
 	from = leaf_node_cell(node, node->num_cells-1, table->cell_size);
-	//TODO: Why not just store last child at the end of children and eliminate the special case?
 	if(parent->last_child == page) {
-		printf("Last child\n");
+//		printf("Last child\n");
 		uuid_copy(parent->children[parent->num_cells].key, *(uuid_t*)from);
 		parent->children[parent->num_cells].page = page;
 		parent->num_cells++;
@@ -258,11 +257,11 @@ void db_insert(Database* db, const char* tablename, void* data) {
 	}
 	for(int i=0;i<parent->num_cells; ++i) {
 		if(parent->children[i].page == page) {
-			printf("Child %i\n", i);
+//			printf("Child %i\n", i);
 			uuid_copy(parent->children[i].key, *(uuid_t*)from);
 			++i;
 			if(i<parent->num_cells) {
-				memmove(parent->children+i, parent->children+i+1, sizeof(Child)*(parent->num_cells-i));
+				memmove(parent->children+i+1, parent->children+i, sizeof(Child)*(parent->num_cells-i));
 			}
 			from = leaf_node_cell(next_node, next_node->num_cells-1, table->cell_size);
 			uuid_copy(parent->children[i].key, *(uuid_t*)from);
