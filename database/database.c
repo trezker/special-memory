@@ -176,7 +176,6 @@ void db_insert(Database* db, const char* tablename, void* data) {
 	bool is_root = true;
 
 	while(node->type == NODE_INTERNAL) {
-	//	printf("Internal node cells: %i\n", node->num_cells);
 		page = node->last_child;
 		for(int i=0; i<node->num_cells; ++i) {
 			if(uuid_compare(node->children[i].key, *(uuid_t*)data) > 0) {
@@ -184,9 +183,7 @@ void db_insert(Database* db, const char* tablename, void* data) {
 				break;
 			}
 		}
-//		printf("Loading page #%i\n", page);
 		node = db_get_page(table->pager, page);
-//		printf("Type: %i\n", node->type);
 		is_root = false;
 	}
 	
@@ -209,7 +206,7 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		return;
 	}
 
-//	printf("Splitting page %i\n", page);
+	//printf("Splitting page %i\n", page);
 	uint32_t next_page = db_get_unused_page(table->pager);
 	Node* next_node = db_get_page(table->pager, next_page);
 	memset(next_node, 0, PAGE_SIZE);
@@ -235,20 +232,13 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		void* from = leaf_node_cell(child_node, child_node->num_cells-1, table->cell_size);
 		uuid_copy(node->children[0].key, *(uuid_t*)from);
 		node->children[0].page = child_page;
-//		printf("Root child page: %i\n", node->children[0].page);
 		node->last_child = next_page;
-//		printf("Root last child page: %i\n", node->last_child);
-		
-//		printf("child_node type: %i\n", child_node->type);
-//		printf("root node type: %i\n", node->type);
 		return;
 	}
 
-//	printf("Updating parent %i\n", node->parent);
 	Node* parent = db_get_page(table->pager, node->parent);
 	from = leaf_node_cell(node, node->num_cells-1, table->cell_size);
 	if(parent->last_child == page) {
-//		printf("Last child\n");
 		uuid_copy(parent->children[parent->num_cells].key, *(uuid_t*)from);
 		parent->children[parent->num_cells].page = page;
 		parent->num_cells++;
@@ -257,7 +247,6 @@ void db_insert(Database* db, const char* tablename, void* data) {
 	}
 	for(int i=0;i<parent->num_cells; ++i) {
 		if(parent->children[i].page == page) {
-//			printf("Child %i\n", i);
 			uuid_copy(parent->children[i].key, *(uuid_t*)from);
 			++i;
 			if(i<parent->num_cells) {

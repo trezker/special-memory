@@ -160,14 +160,14 @@ void test_cursor_can_traverse_pages() {
 	const char* table = "stuff";
 	db_create_table(db, table, sizeof(Stuff));
 
-	int num_items = 30;
+	int num_items = 1900;
 	char suuid[36];
 	for(int i=0; i<num_items; ++i) {
 		Stuff in;
 		uuid_generate(in.id);
 		
-		uuid_unparse(in.id, suuid);
-		printf("%s\n", suuid);
+//		uuid_unparse(in.id, suuid);
+//		printf("%s\n", suuid);
 
 		sprintf(in.text, "name%i", i);
 		db_insert(db, table, &in);
@@ -321,7 +321,7 @@ int main(int argc, char* argv[]) {
 	add_test(test_pager_provides_writable_pages);
 
 	add_test(test_cursor_can_step_through_a_table);
-	//add_test(test_cursor_can_traverse_pages);
+	add_test(test_cursor_can_traverse_pages);
 
 	add_test(test_key_dataset_1);
 

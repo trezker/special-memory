@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <unistd.h>
 
-#define MAX_PAGES 100
+#define MAX_PAGES 1000
 #define PAGE_SIZE 4096
 
 
