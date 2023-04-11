@@ -168,6 +168,32 @@ void db_leaf_insert(Node* node, Table* table, void* data) {
 	node->num_cells += 1;
 }
 
+void db_internal_insert(Table* table, Node* node, uint32_t page, Node* next_node, uint32_t next_page) {
+	Node* parent = db_get_page(table->pager, node->parent);
+	void* from = leaf_node_cell(node, node->num_cells-1, table->cell_size);
+	if(parent->last_child == page) {
+		uuid_copy(parent->children[parent->num_cells].key, *(uuid_t*)from);
+		parent->children[parent->num_cells].page = page;
+		parent->num_cells++;
+		parent->last_child = next_page;
+		return;
+	}
+	for(int i=0;i<parent->num_cells; ++i) {
+		if(parent->children[i].page == page) {
+			uuid_copy(parent->children[i].key, *(uuid_t*)from);
+			++i;
+			if(i<parent->num_cells) {
+				memmove(parent->children+i+1, parent->children+i, sizeof(Child)*(parent->num_cells-i));
+			}
+			from = leaf_node_cell(next_node, next_node->num_cells-1, table->cell_size);
+			uuid_copy(parent->children[i].key, *(uuid_t*)from);
+			parent->children[i].page = next_page;
+			parent->num_cells++;
+			return;
+		}
+	}
+}
+
 void db_insert(Database* db, const char* tablename, void* data) {
 	uint32_t ti = db_find_table(db, tablename);
 	Table* table = &db->tables[ti];
@@ -236,29 +262,7 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		return;
 	}
 
-	Node* parent = db_get_page(table->pager, node->parent);
-	from = leaf_node_cell(node, node->num_cells-1, table->cell_size);
-	if(parent->last_child == page) {
-		uuid_copy(parent->children[parent->num_cells].key, *(uuid_t*)from);
-		parent->children[parent->num_cells].page = page;
-		parent->num_cells++;
-		parent->last_child = next_page;
-		return;
-	}
-	for(int i=0;i<parent->num_cells; ++i) {
-		if(parent->children[i].page == page) {
-			uuid_copy(parent->children[i].key, *(uuid_t*)from);
-			++i;
-			if(i<parent->num_cells) {
-				memmove(parent->children+i+1, parent->children+i, sizeof(Child)*(parent->num_cells-i));
-			}
-			from = leaf_node_cell(next_node, next_node->num_cells-1, table->cell_size);
-			uuid_copy(parent->children[i].key, *(uuid_t*)from);
-			parent->children[i].page = next_page;
-			parent->num_cells++;
-			return;
-		}
-	}
+	db_internal_insert(table, node, page, next_node, next_page);
 }
 
 void db_select(Database* db, const char* tablename, uuid_t id, void* data) {
