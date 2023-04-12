@@ -151,7 +151,28 @@ const char* db_next_table(Database* db, const char* name) {
 	return NULL;
 }
 
-void db_leaf_insert(Node* node, Table* table, void* data) {
+void db_update_parent(Table* table, Node* node, uint32_t page) {
+	Node* parent_node = db_get_page(table->pager, node->parent);
+	for(int i=0;i<parent_node->num_cells; ++i) {
+		if(parent_node->children[i].page == page) {
+			void* from;
+			if(node->type == NODE_LEAF) {
+				from = leaf_node_cell(node, node->num_cells-1, table->cell_size);
+			} else {
+				//Incorrect, should be last key in last_child which may only be found several levels down
+				//remove last_child usage
+				from = node->children + (node->num_cells-1); 
+			}
+			uuid_copy(parent_node->children[i].key, *(uuid_t*)from);
+			break;
+		}
+	}
+	if(node->parent != 0) {
+		db_update_parent(table, parent_node, node->parent);
+	}
+}
+
+void db_leaf_insert(Node* node, Table* table, void* data, uint32_t page) {
 	//Insert in right place
 	for(int i=0; i<node->num_cells; ++i) {
 		void* cell = leaf_node_cell(node, i, table->cell_size);
@@ -166,6 +187,10 @@ void db_leaf_insert(Node* node, Table* table, void* data) {
 	void* cell = leaf_node_cell(node, node->num_cells, table->cell_size);
 	memcpy(cell, data, table->cell_size);
 	node->num_cells += 1;
+	
+	if(page != 0) {
+		db_update_parent(table, node, page);
+	}
 }
 
 void db_internal_insert(Table* table, Node* node, uint32_t page, Node* next_node, uint32_t next_page) {
@@ -213,18 +238,7 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		is_root = false;
 	}
 	
-	db_leaf_insert(node, table, data);
-
-	//Update parent
-	if(is_root == false) {
-		Node* parent_node = db_get_page(table->pager, node->parent);
-		for(int i=0;i<parent_node->num_cells; ++i) {
-			if(parent_node->children[i].page == page) {
-				void* from = leaf_node_cell(node, node->num_cells-1, table->cell_size);
-				uuid_copy(parent_node->children[i].key, *(uuid_t*)from);
-			}
-		}
-	}
+	db_leaf_insert(node, table, data, is_root);
 
 	//Split if full
 	uint32_t max_cells = leaf_max_cells(table);
@@ -263,6 +277,46 @@ void db_insert(Database* db, const char* tablename, void* data) {
 	}
 
 	db_internal_insert(table, node, page, next_node, next_page);
+	
+	//if parent full, split it
+	if(node->parent == 0) {
+		is_root == true;
+	}
+	node = db_get_page(table->pager, node->parent);
+	if(node->num_cells < INTERNAL_NODE_MAX_CELLS) {
+		return;
+	}
+
+	next_page = db_get_unused_page(table->pager);
+	next_node = db_get_page(table->pager, next_page);
+	memset(next_node, 0, PAGE_SIZE);
+	next_node->type = NODE_INTERNAL;
+	next_node->num_cells = INTERNAL_NODE_MAX_CELLS/2;
+	node->num_cells -= next_node->num_cells;
+	from = node->children + node->num_cells;
+	memcpy(next_node->children, from, next_node->num_cells*sizeof(Child));
+	next_node->next_leaf = node->next_leaf;
+	node->next_leaf = next_page;
+	next_node->last_child = node->last_child;
+	node->last_child = node->children[--node->num_cells].page;
+
+	//Need to create new root
+	if(is_root) {
+		uint32_t child_page = db_get_unused_page(table->pager);
+		Node* child_node = db_get_page(table->pager, child_page);
+		memcpy(child_node, node, PAGE_SIZE);
+		memset(node, 0, PAGE_SIZE);
+		child_node->parent = 0;
+
+		node->num_cells = 1;
+		node->type = NODE_INTERNAL;
+		node->parent = 0;
+		void* from = node->children + (node->num_cells - 1);
+		uuid_copy(node->children[0].key, *(uuid_t*)from);
+		node->children[0].page = child_page;
+		node->last_child = next_page;
+		return;
+	}
 }
 
 void db_select(Database* db, const char* tablename, uuid_t id, void* data) {
