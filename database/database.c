@@ -304,7 +304,7 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		node->type = NODE_INTERNAL;
 		node->parent = 0;
 		
-		void* from = child_node->children + (node->num_cells - 1);
+		void* from = child_node->children + (child_node->num_cells - 1);
 		uuid_copy(node->children[0].key, *(uuid_t*)from);
 		node->children[0].page = child_page;
 		
