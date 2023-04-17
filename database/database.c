@@ -222,6 +222,7 @@ void db_insert(Database* db, const char* tablename, void* data) {
 				break;
 			}
 		}
+		printf("child %i\n", page);
 		node = db_get_page(table->pager, page);
 		is_root = false;
 	}
@@ -280,6 +281,9 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		return;
 	}
 
+	char suuid[36];
+	uuid_unparse(data, suuid);
+	printf("split %s\n", suuid);
 	next_page = db_get_unused_page(table->pager);
 	next_node = db_get_page(table->pager, next_page);
 	memset(next_node, 0, PAGE_SIZE);
@@ -288,8 +292,6 @@ void db_insert(Database* db, const char* tablename, void* data) {
 	node->num_cells -= next_node->num_cells;
 	from = node->children + node->num_cells;
 	memcpy(next_node->children, from, next_node->num_cells*sizeof(Child));
-	next_node->next_leaf = node->next_leaf;
-	node->next_leaf = next_page;
 
 	//Update parent on children
 	for(uint32_t i = 0; i < next_node->num_cells; ++i) {
@@ -303,6 +305,12 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		Node* child_node = db_get_page(table->pager, child_page);
 		memcpy(child_node, node, PAGE_SIZE);
 		memset(node, 0, PAGE_SIZE);
+
+		//Update parent on children
+		for(uint32_t i = 0; i < child_node->num_cells; ++i) {
+			Node* grandchild = db_get_page(table->pager, child_node->children[i].page);
+			grandchild->parent = child_node;
+		}
 
 		node->num_cells = 2;
 		node->type = NODE_INTERNAL;
