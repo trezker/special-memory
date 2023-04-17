@@ -156,8 +156,6 @@ void db_update_parent(Table* table, Node* node, uint32_t page) {
 			if(node->type == NODE_LEAF) {
 				from = leaf_node_cell(node, node->num_cells-1, table->cell_size);
 			} else {
-				//Incorrect, should be last key in last_child which may only be found several levels down
-				//remove last_child usage
 				from = node->children + (node->num_cells-1); 
 			}
 			uuid_copy(parent_node->children[i].key, *(uuid_t*)from);

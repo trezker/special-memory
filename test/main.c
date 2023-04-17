@@ -160,18 +160,23 @@ void test_cursor_can_traverse_pages() {
 	const char* table = "stuff";
 	db_create_table(db, table, sizeof(Stuff));
 
-	int num_items = 1900;
+	//FILE* f = fopen("../test/data/dataset2.txt", "w");
+
+	int num_items = 100;
 	char suuid[36];
 	for(int i=0; i<num_items; ++i) {
 		Stuff in;
 		uuid_generate(in.id);
 		
-//		uuid_unparse(in.id, suuid);
+		uuid_unparse(in.id, suuid);
+		//fprintf(f, "%s\n", suuid);
 //		printf("%s\n", suuid);
 
 		sprintf(in.text, "name%i", i);
 		db_insert(db, table, &in);
 	}
+
+	//fclose(f);
 
 	int i = 0;
 	Stuff out;
@@ -244,6 +249,67 @@ void test_key_dataset(char keys[][37], uint32_t num_items) {
 	assert_equal(num_items, i);
 
 	db_close(db);
+}
+
+void test_file_dataset(char* filename) {
+	Database* db = db_open();
+	const char* table = "stuff";
+	db_create_table(db, table, sizeof(Stuff));
+
+	FILE* f = fopen(filename, "r");
+
+
+	int num_items = 0;
+	size_t bufsize = 37;
+	size_t characters;
+	char *buffer = (char *) malloc(bufsize);
+	Stuff in;
+	while(true) {
+		characters = getline(&buffer, &bufsize, f);
+		if(characters != 37) {
+			break;
+		}
+		buffer[36] = '\0';
+		uuid_parse(buffer, in.id);
+		sprintf(in.text, "name%i", num_items);
+		db_insert(db, table, &in);
+		++num_items;
+	}
+	printf("Num items: %i\n", num_items);
+	free(buffer);
+	fclose(f);
+
+	char suuid[36];
+	int i = 0;
+	Stuff out;
+	uuid_t prev;
+	Cursor cursor;
+	db_table_start(db, "stuff", &cursor);
+	db_cursor_value(&cursor, &out);
+	while(cursor.end == false) {
+		uuid_unparse(out.id, suuid);
+		uuid_copy(prev, out.id);
+//		printf("Checking %i Page: %i Cell: %i UUID: %s, Text: %s\n", i, cursor.page, cursor.cell, suuid, out.text);
+//		hexDump(NULL, &out, sizeof(Stuff));
+		++i;
+		db_cursor_next(&cursor);
+		if(cursor.end == false) {
+			db_cursor_value(&cursor, &out);
+			uuid_unparse(out.id, suuid);
+//			printf("Checking %i Page: %i Cell: %i UUID: %s, Text: %s\n", i, cursor.page, cursor.cell, suuid, out.text);
+//			hexDump(NULL, &out, sizeof(Stuff));
+			sprintf(suuid, "Iterator: %i", i);
+			assert_less_than_uuid_m(prev, out.id, suuid);
+		}
+	}
+
+	assert_equal(num_items, i);
+
+	db_close(db);
+}
+
+void test_file_dataset_2() {
+	test_file_dataset("../test/data/dataset2.txt");
 }
 
 void test_key_dataset_1() {
@@ -324,6 +390,7 @@ int main(int argc, char* argv[]) {
 	add_test(test_cursor_can_traverse_pages);
 
 	add_test(test_key_dataset_1);
+	add_test(test_file_dataset_2);
 
 	for(int i=0; i<num_tests; ++i) {
 		memset(last_reverse_id, 255, sizeof(uuid_t));
