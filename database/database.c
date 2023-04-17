@@ -285,6 +285,7 @@ void db_insert(Database* db, const char* tablename, void* data) {
 	uuid_unparse(data, suuid);
 	printf("split %s\n", suuid);
 	next_page = db_get_unused_page(table->pager);
+	printf("next_page %i\n", next_page);
 	next_node = db_get_page(table->pager, next_page);
 	memset(next_node, 0, PAGE_SIZE);
 	next_node->type = NODE_INTERNAL;
@@ -302,6 +303,7 @@ void db_insert(Database* db, const char* tablename, void* data) {
 	//Need to create new root
 	if(is_root) {
 		uint32_t child_page = db_get_unused_page(table->pager);
+		printf("child_page %i\n", child_page);
 		Node* child_node = db_get_page(table->pager, child_page);
 		memcpy(child_node, node, PAGE_SIZE);
 		memset(node, 0, PAGE_SIZE);
