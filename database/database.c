@@ -97,7 +97,7 @@ Database* db_open() {
 }
 
 void db_close(Database* db) {
-	for(int i=0; i<db->num_tables; ++i) {
+	for(uint32_t i=0; i<db->num_tables; ++i) {
 		db_close_pager(db->tables[i].pager);
 	}
 	free(db->tables);
@@ -172,7 +172,7 @@ void db_leaf_insert(Node* node, Table* table, void* data, uint32_t page) {
 	for(int i=0; i<node->num_cells; ++i) {
 		void* cell = leaf_node_cell(node, i, table->cell_size);
 		if(uuid_compare(*(uuid_t*)cell, *(uuid_t*)data) > 0) {
-			memmove(cell+table->cell_size, cell, (node->num_cells-i)*table->cell_size);
+			memmove((char*)cell+table->cell_size, cell, (node->num_cells-i)*table->cell_size);
 			memcpy(cell, data, table->cell_size);
 			node->num_cells += 1;
 			return;
