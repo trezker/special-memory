@@ -20,7 +20,7 @@ typedef struct {
 typedef struct {
 	Table* table;
 	uint32_t page;
-	uint32_t cell;
+	uint8_t cell;
 	bool end;
 } Cursor;
 

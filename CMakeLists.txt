@@ -10,7 +10,7 @@ add_library(database STATIC ${database_SRC})
 file(GLOB test_SRC "test/*.h" "test/*.c")
 add_executable(test ${test_SRC})
 target_compile_options(database PRIVATE
-  -Wall -Wextra -Wpedantic -Werror
+  -Winline -Wunused -Wall -Wextra -Wshadow -Wcast-align -Wpedantic -Werror
 )
 target_link_libraries(test dl uuid database)
 

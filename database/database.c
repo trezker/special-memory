@@ -83,7 +83,7 @@ uint32_t leaf_max_cells(Table* table) {
 	return NODE_SPACE_FOR_CELLS / table->cell_size;
 }
 
-void* leaf_node_cell(Node* node, uint32_t cell_num, uint32_t cell_size) {
+void* leaf_node_cell(Node* node, uint8_t cell_num, uint32_t cell_size) {
 	return node->cellspace + cell_num * cell_size;
 }
 
@@ -258,7 +258,7 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		node->type = NODE_INTERNAL;
 		node->parent = 0;
 
-		void* from = leaf_node_cell(child_node, child_node->num_cells-1, table->cell_size);
+		from = leaf_node_cell(child_node, child_node->num_cells-1, table->cell_size);
 		uuid_copy(node->children[0].key, *(uuid_t*)from);
 		node->children[0].page = child_page;
 		child_node->parent = 0;
@@ -319,7 +319,7 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		node->type = NODE_INTERNAL;
 		node->parent = 0;
 		
-		void* from = child_node->children + (child_node->num_cells - 1);
+		from = child_node->children + (child_node->num_cells - 1);
 		uuid_copy(node->children[0].key, *(uuid_t*)from);
 		node->children[0].page = child_page;
 		child_node->parent = 0;
@@ -333,11 +333,11 @@ void db_insert(Database* db, const char* tablename, void* data) {
 }
 
 void db_select(Database* db, const char* tablename, uuid_t id, void* data) {
-	uint32_t i = db_find_table(db, tablename);
-	Table* table = &db->tables[i];
+	uint32_t t = db_find_table(db, tablename);
+	Table* table = &db->tables[t];
 	Node* node = db_get_page(table->pager, 0);
 
-	for(uint32_t i=0; i<node->num_cells; ++i) {
+	for(uint8_t i=0; i<node->num_cells; ++i) {
 		void* cell = leaf_node_cell(node, i, table->cell_size);
 		if(uuid_compare(*(uuid_t*)cell, id) == 0) {
 			memcpy(data, cell, table->cell_size);
