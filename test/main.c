@@ -162,7 +162,7 @@ void test_cursor_can_traverse_pages() {
 
 	//FILE* f = fopen("../test/data/dataset2.txt", "w");
 
-	int num_items = 100;
+	int num_items = 2600;
 	char suuid[36];
 	for(int i=0; i<num_items; ++i) {
 		Stuff in;

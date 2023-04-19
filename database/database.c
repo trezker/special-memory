@@ -190,7 +190,12 @@ void db_leaf_insert(Node* node, Table* table, void* data, uint32_t page) {
 
 void db_internal_insert(Table* table, Node* node, uint32_t page, Node* next_node, uint32_t next_page) {
 	Node* parent = db_get_page(table->pager, node->parent);
-	void* from = leaf_node_cell(node, node->num_cells-1, table->cell_size);
+	void* from;
+	if(node->type == NODE_LEAF) {
+		from = leaf_node_cell(node, node->num_cells-1, table->cell_size);
+	} else {
+		from = node->children + (node->num_cells-1); 
+	}
 	for(int i=0;i<parent->num_cells; ++i) {
 		if(parent->children[i].page == page) {
 			uuid_copy(parent->children[i].key, *(uuid_t*)from);
@@ -198,7 +203,11 @@ void db_internal_insert(Table* table, Node* node, uint32_t page, Node* next_node
 			if(i<parent->num_cells) {
 				memmove(parent->children+i+1, parent->children+i, sizeof(Child)*(parent->num_cells-i));
 			}
-			from = leaf_node_cell(next_node, next_node->num_cells-1, table->cell_size);
+			if(next_node->type == NODE_LEAF) {
+				from = leaf_node_cell(next_node, next_node->num_cells-1, table->cell_size);
+			} else {
+				from = next_node->children + (next_node->num_cells-1); 
+			}
 			uuid_copy(parent->children[i].key, *(uuid_t*)from);
 			parent->children[i].page = next_page;
 			parent->num_cells++;
@@ -270,65 +279,68 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		return;
 	}
 
-	db_internal_insert(table, node, page, next_node, next_page);
-	
-	//if parent full, split it
-	if(node->parent == 0) {
-		is_root = true;
-	}
-	//printf("parent %i\n", node->parent);
-	node = db_get_page(table->pager, node->parent);
-	if(node->num_cells < INTERNAL_NODE_MAX_CELLS) {
-		return;
-	}
-
-	char suuid[36];
-	uuid_unparse(data, suuid);
-	//printf("split %s\n", suuid);
-	next_page = db_get_unused_page(table->pager);
-	//printf("next_page %i\n", next_page);
-	next_node = db_get_page(table->pager, next_page);
-	memset(next_node, 0, PAGE_SIZE);
-	next_node->type = NODE_INTERNAL;
-	next_node->num_cells = INTERNAL_NODE_MAX_CELLS/2;
-	node->num_cells -= next_node->num_cells;
-	from = node->children + node->num_cells;
-	memcpy(next_node->children, from, next_node->num_cells*sizeof(Child));
-
-	//Update parent on children
-	for(uint32_t i = 0; i < next_node->num_cells; ++i) {
-		Node* child_node = db_get_page(table->pager, next_node->children[i].page);
-		child_node->parent = next_page;
-	}
-
-	//Need to create new root
-	if(is_root) {
-		uint32_t child_page = db_get_unused_page(table->pager);
-		//printf("child_page %i\n", child_page);
-		Node* child_node = db_get_page(table->pager, child_page);
-		memcpy(child_node, node, PAGE_SIZE);
-		memset(node, 0, PAGE_SIZE);
-
-		//Update parent on children
-		for(uint32_t i = 0; i < child_node->num_cells; ++i) {
-			Node* grandchild = db_get_page(table->pager, child_node->children[i].page);
-			grandchild->parent = child_page;
+	while(true) {
+		db_internal_insert(table, node, page, next_node, next_page);
+		
+		//if parent full, split it
+		if(node->parent == 0) {
+			is_root = true;
+		}
+		//printf("parent %i\n", node->parent);
+		page = node->parent;
+		node = db_get_page(table->pager, page);
+		if(node->num_cells < INTERNAL_NODE_MAX_CELLS) {
+			return;
 		}
 
-		node->num_cells = 2;
-		node->type = NODE_INTERNAL;
-		node->parent = 0;
-		
-		from = child_node->children + (child_node->num_cells - 1);
-		uuid_copy(node->children[0].key, *(uuid_t*)from);
-		node->children[0].page = child_page;
-		child_node->parent = 0;
-		
-		from = next_node->children + (next_node->num_cells - 1);
-		uuid_copy(node->children[1].key, *(uuid_t*)from);
-		node->children[1].page = next_page;
-		next_node->parent = 0;
-		return;
+		char suuid[36];
+		uuid_unparse(data, suuid);
+		//printf("split %s\n", suuid);
+		next_page = db_get_unused_page(table->pager);
+		//printf("next_page %i\n", next_page);
+		next_node = db_get_page(table->pager, next_page);
+		memset(next_node, 0, PAGE_SIZE);
+		next_node->type = NODE_INTERNAL;
+		next_node->num_cells = INTERNAL_NODE_MAX_CELLS/2;
+		node->num_cells -= next_node->num_cells;
+		from = node->children + node->num_cells;
+		memcpy(next_node->children, from, next_node->num_cells*sizeof(Child));
+
+		//Update parent on children
+		for(uint32_t i = 0; i < next_node->num_cells; ++i) {
+			Node* child_node = db_get_page(table->pager, next_node->children[i].page);
+			child_node->parent = next_page;
+		}
+
+		//Need to create new root
+		if(is_root) {
+			uint32_t child_page = db_get_unused_page(table->pager);
+			//printf("child_page %i\n", child_page);
+			Node* child_node = db_get_page(table->pager, child_page);
+			memcpy(child_node, node, PAGE_SIZE);
+			memset(node, 0, PAGE_SIZE);
+
+			//Update parent on children
+			for(uint32_t i = 0; i < child_node->num_cells; ++i) {
+				Node* grandchild = db_get_page(table->pager, child_node->children[i].page);
+				grandchild->parent = child_page;
+			}
+
+			node->num_cells = 2;
+			node->type = NODE_INTERNAL;
+			node->parent = 0;
+			
+			from = child_node->children + (child_node->num_cells - 1);
+			uuid_copy(node->children[0].key, *(uuid_t*)from);
+			node->children[0].page = child_page;
+			child_node->parent = 0;
+			
+			from = next_node->children + (next_node->num_cells - 1);
+			uuid_copy(node->children[1].key, *(uuid_t*)from);
+			node->children[1].page = next_page;
+			next_node->parent = 0;
+			return;
+		}
 	}
 }
 
