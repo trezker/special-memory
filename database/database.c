@@ -131,6 +131,7 @@ void db_create_table(Database* db, const char* name, uint32_t cell_size) {
 	memset(node, 0, PAGE_SIZE);
 	node->num_cells = 0;
 	node->next_leaf = 0;
+	node->parent = 0;
 	node->type = NODE_LEAF;
 
 	db->num_tables++;
@@ -189,6 +190,14 @@ void db_leaf_insert(Node* node, Table* table, void* data, uint32_t page) {
 }
 
 void db_internal_insert(Table* table, Node* node, uint32_t page, Node* next_node, uint32_t next_page) {
+	Node* check1 = db_get_page(table->pager, page);
+	if(check1 != node) {
+		printf("node/page mismatch\n");
+	}
+	Node* check2 = db_get_page(table->pager, next_page);
+	if(check2 != next_node) {
+		printf("next node/page mismatch\n");
+	}
 	Node* parent = db_get_page(table->pager, node->parent);
 	void* from;
 	if(node->type == NODE_LEAF) {
@@ -198,6 +207,7 @@ void db_internal_insert(Table* table, Node* node, uint32_t page, Node* next_node
 	}
 	for(int i=0;i<parent->num_cells; ++i) {
 		if(parent->children[i].page == page) {
+			//printf("parent %i, child %i, cells %i\n", node->parent, i, parent->num_cells);
 			uuid_copy(parent->children[i].key, *(uuid_t*)from);
 			++i;
 			if(i<parent->num_cells) {
@@ -214,6 +224,7 @@ void db_internal_insert(Table* table, Node* node, uint32_t page, Node* next_node
 			return;
 		}
 	}
+	printf("NOPE\n");
 }
 
 void db_insert(Database* db, const char* tablename, void* data) {
@@ -249,6 +260,7 @@ void db_insert(Database* db, const char* tablename, void* data) {
 	Node* next_node = db_get_page(table->pager, next_page);
 	memset(next_node, 0, PAGE_SIZE);
 	next_node->type = NODE_LEAF;
+	next_node->parent = node->parent;
 	next_node->num_cells = max_cells/2;
 	node->num_cells -= next_node->num_cells;
 	void* from = leaf_node_cell(node, node->num_cells, table->cell_size);
@@ -279,8 +291,10 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		return;
 	}
 
+//printf("internal loop\n");
 	while(true) {
 		db_internal_insert(table, node, page, next_node, next_page);
+//printf("internal insert\n");
 		
 		//if parent full, split it
 		if(node->parent == 0) {
@@ -292,7 +306,7 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		if(node->num_cells < INTERNAL_NODE_MAX_CELLS) {
 			return;
 		}
-
+//printf("split\n");
 		char suuid[36];
 		uuid_unparse(data, suuid);
 		//printf("split %s\n", suuid);
