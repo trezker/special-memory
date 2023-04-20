@@ -315,6 +315,7 @@ void db_insert(Database* db, const char* tablename, void* data) {
 		next_node = db_get_page(table->pager, next_page);
 		memset(next_node, 0, PAGE_SIZE);
 		next_node->type = NODE_INTERNAL;
+		next_node->parent = node->parent;
 		next_node->num_cells = INTERNAL_NODE_MAX_CELLS/2;
 		node->num_cells -= next_node->num_cells;
 		from = node->children + node->num_cells;

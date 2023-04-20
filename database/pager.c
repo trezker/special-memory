@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include "pager.h"
 
 Pager* db_open_pager() {
@@ -18,6 +19,7 @@ void db_close_pager(Pager* pager) {
 }
 
 uint32_t db_get_unused_page(Pager* pager) {
+	printf("Page: %i\n", pager->num_pages);
 	pager->pages[pager->num_pages] = malloc(PAGE_SIZE);
 	return pager->num_pages++;
 }
