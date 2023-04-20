@@ -160,9 +160,9 @@ void test_cursor_can_traverse_pages() {
 	const char* table = "stuff";
 	db_create_table(db, table, sizeof(Stuff));
 
-	//FILE* f = fopen("../test/data/dataset2.txt", "w");
+	//FILE* f = fopen("../test/data/dataset4.txt", "w");
 
-	int num_items = 2600;
+	int num_items = 1600;
 	char suuid[36];
 	for(int i=0; i<num_items; ++i) {
 		Stuff in;
@@ -312,6 +312,10 @@ void test_file_dataset_2() {
 	test_file_dataset("../test/data/dataset2.txt");
 }
 
+void test_file_dataset_3() {
+	test_file_dataset("../test/data/dataset3.txt");
+}
+
 void test_key_dataset_1() {
 	char keystrings[33][37] = {
 		"aad4d207-4ebc-42d2-b69b-6aa6c8270f1c",
@@ -391,6 +395,7 @@ int main(int argc, char* argv[]) {
 
 	add_test(test_key_dataset_1);
 	add_test(test_file_dataset_2);
+	add_test(test_file_dataset_3);
 
 	for(int i=0; i<num_tests; ++i) {
 		memset(last_reverse_id, 255, sizeof(uuid_t));
