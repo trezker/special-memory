@@ -275,7 +275,7 @@ void test_file_dataset(char* filename) {
 		db_insert(db, table, &in);
 		++num_items;
 	}
-	printf("Num items: %i\n", num_items);
+	//printf("Num items: %i\n", num_items);
 	free(buffer);
 	fclose(f);
 
@@ -372,9 +372,9 @@ Implement btree.
 Don't define columns, but create index giving type and offset.
 */
 int main(int argc, char* argv[]) {
-	printf("Stuff: %li\n", sizeof(Stuff));
-	printf("uuid: %li\n", sizeof(uuid_t));
-	printf("System pagesize: %ld\n", sysconf(_SC_PAGESIZE));
+	//printf("Stuff: %li\n", sizeof(Stuff));
+	//printf("uuid: %li\n", sizeof(uuid_t));
+	//printf("System pagesize: %ld\n", sysconf(_SC_PAGESIZE));
 	
 	clear_allocations();
 
@@ -399,7 +399,10 @@ int main(int argc, char* argv[]) {
 
 	for(int i=0; i<num_tests; ++i) {
 		memset(last_reverse_id, 255, sizeof(uuid_t));
+		char buf[BUFSIZ];
+		setvbuf(stdout, buf, _IONBF, BUFSIZ);
 		tests[i].f();
+	    fclose(stdout);
 		if(!check_allocations()) {
 			printf("Memory fault on test at line #%i\n", tests[i].line);
 			return EXIT_FAILURE;

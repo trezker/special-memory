@@ -19,7 +19,11 @@ void db_close_pager(Pager* pager) {
 }
 
 uint32_t db_get_unused_page(Pager* pager) {
-	printf("Page: %i\n", pager->num_pages);
+	//printf("Page: %i\n", pager->num_pages);
+	if(pager->num_pages >= MAX_PAGES) {
+		//printf("Page overflow\n");
+		exit(0);
+	}
 	pager->pages[pager->num_pages] = malloc(PAGE_SIZE);
 	return pager->num_pages++;
 }

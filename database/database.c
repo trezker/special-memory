@@ -2,7 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include "database.h"
-
+/*
+uint32_t _db_get_unused_page(int line, Pager* pager) {
+	printf("db_get_unused_page called from: %i\n", line);
+	return db_get_unused_page(pager);
+}
+#define db_get_unused_page(X) _db_get_unused_page(__LINE__, (X) )
+*/
 void hexDumps (char *desc, void *addr, int len) {
     int i;
     unsigned char buff[17];       // stores the ASCII data
@@ -224,10 +230,14 @@ void db_internal_insert(Table* table, Node* node, uint32_t page, Node* next_node
 			return;
 		}
 	}
-	printf("NOPE\n");
+	//printf("NOPE\n");
 }
 
 void db_insert(Database* db, const char* tablename, void* data) {
+	char suuid[37];
+	uuid_unparse(data, suuid);
+	//printf("Inserting UUID: %s\n", suuid);
+
 	uint32_t ti = db_find_table(db, tablename);
 	Table* table = &db->tables[ti];
 	uint32_t page = 0;
@@ -307,8 +317,8 @@ void db_insert(Database* db, const char* tablename, void* data) {
 			return;
 		}
 //printf("split\n");
-		char suuid[36];
-		uuid_unparse(data, suuid);
+		//char suuid[36];
+		//uuid_unparse(data, suuid);
 		//printf("split %s\n", suuid);
 		next_page = db_get_unused_page(table->pager);
 		//printf("next_page %i\n", next_page);
